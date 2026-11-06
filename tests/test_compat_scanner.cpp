@@ -106,9 +106,9 @@ void TestCompatScanner::entryCountsComeFromParser()
     // input.conf: 3 bindings.
     QCOMPARE(findFile(u"input.conf"_s).kind, u"input-conf"_s);
     QCOMPARE(findFile(u"input.conf"_s).entryCount, 3);
-    // profiles.conf: 2 headers + 1 + 1 option entries.
+    // profiles.conf: 2 headers + 3 option entries.
     QCOMPARE(findFile(u"profiles.conf"_s).kind, u"profiles-conf"_s);
-    QCOMPARE(findFile(u"profiles.conf"_s).entryCount, 4);
+    QCOMPARE(findFile(u"profiles.conf"_s).entryCount, 5);
     QCOMPARE(findFile(u"platform.conf"_s).entryCount, 1);
     QCOMPARE(findFile(u"script-opts/foo.conf"_s).kind, u"script-opt"_s);
     QCOMPARE(findFile(u"script-opts/foo.conf"_s).entryCount, 1);

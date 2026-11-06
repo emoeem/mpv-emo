@@ -61,10 +61,10 @@ void TestMpvKeyName::shiftedLetter()
 
 void TestMpvKeyName::shiftedPunctuationPrefersText()
 {
-    // No ctrl/alt: a shifted punctuation key produces a printable character,
-    // which is fed literally (mpv binds ">" as shift+. — same result).
+    // Shifted punctuation uses the canonical modifier form: mpv parses
+    // "shift+." exactly like the ">" key name in an input.conf binding.
     QCOMPARE(MpvKeyName::fromQt(Qt::Key_Period, Qt::ShiftModifier, u">"_s),
-             u">"_s);
+             u"shift+."_s);
 }
 
 void TestMpvKeyName::ctrlCombination()
