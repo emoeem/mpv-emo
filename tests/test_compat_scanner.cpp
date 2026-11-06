@@ -22,8 +22,8 @@ private slots:
     void scanMissingDirectoryIsInvalid();
     void scanEmptyDirectoryIsValidButContentless();
     void entryCountsComeFromParser();
-    void locatePrefersPlatformDefaultOverXdgFallback();
-    void locateFallsBackToXdgConfigHome();
+    void locateXdgConfigHomeIsExclusiveWhenSet();
+    void locateLegacyMpvUsedOnlyWhenPrimaryMissing();
     void locateReturnsEmptyWhenNothingExists();
     void locateOnWindowsUsesAppData();
     void summaryVariantRoundTrip();
@@ -118,30 +118,47 @@ void TestCompatScanner::entryCountsComeFromParser()
     QCOMPARE(findFile(u"fonts/Fake.ttf"_s).kind, u"font"_s);
 }
 
-void TestCompatScanner::locatePrefersPlatformDefaultOverXdgFallback()
+void TestCompatScanner::locateXdgConfigHomeIsExclusiveWhenSet()
 {
     QTemporaryDir home;
     QTemporaryDir xdg;
     QVERIFY(home.isValid());
     QVERIFY(xdg.isValid());
-    // Both candidates exist: ~/.config/mpv wins on Linux.
     QVERIFY(QDir(home.path()).mkpath(u".config/mpv"_s));
     QVERIFY(QDir(xdg.path()).mkpath(u"mpv"_s));
 
+    // mpv semantics (osdep/path-unix.c): when XDG_CONFIG_HOME is set it is
+    // used EXCLUSIVELY -- ~/.config/mpv is never consulted, even when it
+    // exists.
     QCOMPARE(MpvProfileScanner::locateConfigDirIn(home.path(), xdg.path(),
                                                   QString()),
-             home.path() + u"/.config/mpv"_s);
+             xdg.path() + u"/mpv"_s);
+
+    // XDG set but its mpv dir missing, and no legacy ~/.mpv: the home
+    // candidate must NOT be returned (mpv would ignore it too).
+    QTemporaryDir xdgMissing;
+    QVERIFY(xdgMissing.isValid());
+    QCOMPARE(MpvProfileScanner::locateConfigDirIn(home.path(),
+                                                  xdgMissing.path(),
+                                                  QString()),
+             QString());
 }
 
-void TestCompatScanner::locateFallsBackToXdgConfigHome()
+void TestCompatScanner::locateLegacyMpvUsedOnlyWhenPrimaryMissing()
 {
     QTemporaryDir home;
-    QTemporaryDir xdg;
     QVERIFY(home.isValid());
-    QVERIFY(xdg.isValid());
-    // Only the XDG candidate exists.
-    QVERIFY(QDir(xdg.path()).mkpath(u"mpv"_s));
+    // No XDG, no ~/.config/mpv: the legacy ~/.mpv directory is the fallback.
+    QVERIFY(QDir(home.path()).mkpath(u".mpv"_s));
+    QCOMPARE(MpvProfileScanner::locateConfigDirIn(home.path(), QString(),
+                                                  QString()),
+             home.path() + u"/.mpv"_s);
 
+    // mpv path-unix.c: legacy ~/.mpv only wins when the XDG dir does NOT
+    // exist; with the XDG dir present the legacy directory is ignored.
+    QTemporaryDir xdg;
+    QVERIFY(xdg.isValid());
+    QVERIFY(QDir(xdg.path()).mkpath(u"mpv"_s));
     QCOMPARE(MpvProfileScanner::locateConfigDirIn(home.path(), xdg.path(),
                                                   QString()),
              xdg.path() + u"/mpv"_s);

@@ -45,10 +45,13 @@ struct ImportSummary
 class MpvProfileScanner
 {
 public:
-    // Platform default location for mpv's config dir, checked in this order:
-    //   Linux:   $HOME/.config/mpv, falling back to $XDG_CONFIG_HOME/mpv
-    //   Windows: %APPDATA%/mpv
-    //   macOS:   $HOME/.config/mpv
+    // Platform default location for mpv's config dir, mirroring mpv's own
+    // resolution (osdep/path-unix.c / path-win.c):
+    //   Linux/macOS: $XDG_CONFIG_HOME/mpv EXCLUSIVELY when XDG_CONFIG_HOME is
+    //                set, else $HOME/.config/mpv; the legacy $HOME/.mpv
+    //                directory is used only when the primary candidate does
+    //                not exist
+    //   Windows:     %APPDATA%/mpv
     // Returns an empty string when none of the candidates exists.
     static QString locateDefaultConfigDir();
 

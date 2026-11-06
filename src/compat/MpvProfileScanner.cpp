@@ -133,24 +133,32 @@ QString MpvProfileScanner::locateConfigDirIn(const QString &homeDir,
                                              const QString &appDataDir)
 {
     // Only the Windows branch consults %APPDATA%.
-    Q_UNUSED(appDataDir);
     QStringList candidates;
 #if defined(Q_OS_WIN)
+    Q_UNUSED(appDataDir);
     // Windows: mpv reads %APPDATA%\mpv (or portable_config next to mpv.exe,
     // which is out of scope for a scan-based import).
     if (!appDataDir.isEmpty())
         candidates.append(appDataDir + QLatin1String("/mpv"));
-#elif defined(Q_OS_MACOS)
-    if (!homeDir.isEmpty())
-        candidates.append(homeDir + QLatin1String("/.config/mpv"));
 #else
-    // Linux/BSD: ~/.config/mpv first; XDG_CONFIG_HOME is only consulted as a
-    // fallback (the ask specifies this order), even though it usually points
-    // at the same directory.
-    if (!homeDir.isEmpty())
-        candidates.append(homeDir + QLatin1String("/.config/mpv"));
+    // Unix semantics (mpv osdep/path-unix.c): $XDG_CONFIG_HOME is used
+    // EXCLUSIVELY when set — ~/.config/mpv is never consulted in that case;
+    // otherwise ~/.config/mpv. The legacy ~/.mpv directory is a fallback
+    // used only when the primary candidate does not exist. Scanning a
+    // directory mpv itself would ignore would import the wrong files.
+    Q_UNUSED(appDataDir);
+    QString primary;
     if (!xdgConfigHomeDir.isEmpty())
-        candidates.append(xdgConfigHomeDir + QLatin1String("/mpv"));
+        primary = xdgConfigHomeDir + QLatin1String("/mpv");
+    else if (!homeDir.isEmpty())
+        primary = homeDir + QLatin1String("/.config/mpv");
+    if (!primary.isEmpty() && QFileInfo::exists(primary))
+        candidates.append(primary);
+    if (!homeDir.isEmpty()) {
+        const QString legacy = homeDir + QLatin1String("/.mpv");
+        if (QFileInfo::exists(legacy))
+            candidates.append(legacy);
+    }
 #endif
 
     for (const QString &candidate : candidates) {
