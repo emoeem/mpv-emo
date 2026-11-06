@@ -115,5 +115,5 @@ void TestMpvKeyName::spaceIsNamedNotLiteral()
              u"SPACE"_s);
 }
 
-QTEST_MAIN(TestMpvKeyName)
+QTEST_GUILESS_MAIN(TestMpvKeyName)
 #include "test_mpv_key_name.moc"

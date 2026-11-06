@@ -224,5 +224,5 @@ void TestCompatController::requestWizardTogglesProperty()
     QVERIFY(!controller.wizardRequested());
 }
 
-QTEST_MAIN(TestCompatController)
+QTEST_GUILESS_MAIN(TestCompatController)
 #include "test_compat_controller.moc"

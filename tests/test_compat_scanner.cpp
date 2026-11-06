@@ -197,5 +197,5 @@ void TestCompatScanner::summaryVariantRoundTrip()
     }
 }
 
-QTEST_MAIN(TestCompatScanner)
+QTEST_GUILESS_MAIN(TestCompatScanner)
 #include "test_compat_scanner.moc"

@@ -155,5 +155,5 @@ void TestAppSettings::importDecisionTimestamped()
     QCOMPARE(settings.importedAt(), first);
 }
 
-QTEST_MAIN(TestAppSettings)
+QTEST_GUILESS_MAIN(TestAppSettings)
 #include "test_app_settings.moc"

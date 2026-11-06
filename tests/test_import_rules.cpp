@@ -211,5 +211,5 @@ void TestImportRules::forcedAndStrippedKeyLists()
         QVERIFY(!stripped.contains(key));
 }
 
-QTEST_MAIN(TestImportRules)
+QTEST_GUILESS_MAIN(TestImportRules)
 #include "test_import_rules.moc"
