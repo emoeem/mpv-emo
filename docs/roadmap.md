@@ -15,7 +15,7 @@
 | P6 | 媒体库与文件管理 | pending | — |
 | P7 | 音乐模式（歌词/EQ） | pending | — |
 | P8 | 插件生态（脚本/着色器管理） | pending | — |
-| P9 | 平台集成（打包/更新/系统集成） | pending | — |
+| P9 | 平台集成（打包/更新/系统集成） | **in-progress** | 打包/发布管线已落地：release.yml 三平台构建（Linux AppImage / Windows zip / macOS dmg）+ tag push 自动发布，v0.1.0-alpha prerelease 已发布（execution-log 批次 4）；**签名/公证未做**（Windows 无 Authenticode、macOS 仅 ad-hoc 签名），更新器与系统集成（文件关联/协议关联等）未做 |
 | P10 | 全面测试与发布 | pending | — |
 
 ## 当前批次任务清单

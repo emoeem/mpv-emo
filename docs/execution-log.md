@@ -56,3 +56,33 @@
   1. **HistoryStore 5s position 刷新竞态**（`986262b` 修复）：`onTimerTick` 依赖 `fileLoaded` 时缓存的 `m_currentPath`；播放列表切到下一文件时，mpv core 可能已暴露新文件的 time-pos 而 FILE_LOADED 事件仍排队在 wakeup→GUI 事件泵中，落在该窗口的 tick 会把新文件的 ~0 位置写进上一条历史、毁掉断点续播。处置：tick 内与 time-pos 一道实时读 `getProperty("path")`（空 path = 加载间隙 = no-op），删除缓存成员，同时符合 architecture.md 决策 7「不缓存播放状态」。
   2. **Tracks 抽屉按钮字形易混**（`6b719ac` 修复）：♪♪（\u266B）与同排静音按钮的 ♪（\u266A）易误触。处置：改用 ⚙（\u2699）；评审另一候选 ≡（\u2261）因与相邻播放列表按钮 ☰（\u2630）形似被否决。
 - **风险与待验证**：实机交互（抽屉/字幕/列表/历史回放）与播放列表磁盘持久化仍未完成，已列入 roadmap「后续批次」的 P3 收尾项
+
+## 2026-11-07 · 批次 4：P9 三平台打包/发布管线与 v0.1.0-alpha 发布
+
+- **任务**：release.yml（tag push 发布 / workflow_dispatch 干跑）三平台构建、干跑修复、评审加固、发布 v0.1.0-alpha
+- **涉及 commit**（`git log --oneline` 实查）：
+  - `fa9a89a` feat(release): three-platform build and release pipeline
+  - `5057543` fix(release): build on macos-15 and force-include <iterator> on MSVC
+  - `3ebb1d3` fix(release): apply /FIiterator before target creation so it reaches all TUs
+  - `9156eb5` fix(release): patch Qt 6.4.3 stdext macros for MSVC 14.51 (VS 18)
+  - `742e7a2` fix(release): apply review hardening (SHA pins, checksums, least privilege)
+- **干跑轮次**（workflow_dispatch，run 列表/详情与失败日志实查）：
+  | run | head | 结论 | 说明 |
+  |---|---|---|---|
+  | 42264806002 | `fa9a89a` | cancelled | 首轮：Windows Build 失败；macOS job（当时仍为 macos-14）cancelled。macos-14 已于 2026-11-02 从 GitHub Actions 退役（runner-images #15226，release.yml 注释） |
+  | 42266499484 | `5057543` | failure | Windows Build：Qt 6.4.3 `qvarlengtharray.h` C3861/C2065（stdext 命名空间不存在），Linux 成功 |
+  | 42267615552 | `3ebb1d3` | failure | Windows 同错误（/FIiterator 已在 cl 命令行上仍无效）；macOS Package 步骤 `hdiutil: create failed - Resource busy` |
+  | 42268937918 | `9156eb5` | success | 三平台全绿，首次完整干跑 |
+  | 42270913087 | `9156eb5` | success | 复跑确认可重复 |
+  | 42274936655 | `742e7a2` | success | 评审加固后复跑 |
+- **评审发现的问题与处置**：
+  1. **macOS runner 退役**（`5057543`）：macos-14 退役 → 改用 macos-15（arm64）；Qt 6.4.3 的 clang_64 包为 universal，在 arm64 可用。
+  2. **MSVC 14.51（VS 18）STL 删除 stdext::checked_array_iterator**（`5057543`→`3ebb1d3`→`9156eb5` 三轮）：Qt 6.4.3 `qcompilerdetection.h` 无条件把 QT_MAKE_CHECKED/UNCHECKED_ARRAY_ITERATOR 映射到 stdext 工厂函数。先试 /FIiterator（含修正到 target 创建前以覆盖 autogen TU），失败日志证明 namespace 本身不存在、强包含头文件无济于事；最终按 Qt 6.6 对 _MSC_VER >= 1938 的官方做法，改写 CI 安装目录中两处宏体为恒等并校验无 `stdext::` 残留，同时移除 /FIiterator（`9156eb5`）。
+  3. **macOS hdiutil "Resource busy"**：Package 步骤代码未改动，下一轮干跑即通过 → 判定 runner 瞬态；macdeployqt 对 libiodbc/libpq sqldrivers 的 ERROR 行为非致命跳过，不影响 dmg 产出（42268937918 日志实查）。
+  4. **评审加固**（`742e7a2`）：第三方 action 全部固定完整 commit SHA（版本注释见 release.yml，允许清单见 docs/allowed-actions.md）；外部下载固定版本化 tag + SHA256 校验（linuxdeploy 1-alpha-20251107-1、linuxdeploy-plugin-qt 1-alpha-20250213-1、zhongfly/mpv-winbuild mpv-dev 2026-11-04-ff8ca979b0）；权限最小化（顶层 contents: read，写权限仅 release job）；release job `fail_on_unmatched_files` 防空 Release；prerelease body 注明验证范围与 Gatekeeper 提示。
+- **发布**：tag `v0.1.0-alpha` push → run 42276002560（success，3m23s）→ prerelease **https://github.com/emoeem/mpv-emo/releases/tag/v0.1.0-alpha**
+- **最终资产**（`env -u GH_TOKEN gh release view v0.1.0-alpha` 实查）：
+  - `EmoPlay-0.1.0-alpha-linux-x86_64.AppImage`（111,409,656 B ≈ 106 MB）
+  - `EmoPlay-0.1.0-alpha-windows-x86_64.zip`（95,421,195 B ≈ 91 MB）
+  - `EmoPlay-0.1.0-alpha-macos.dmg`（74,336,763 B ≈ 71 MB，仅 ad-hoc 签名）
+- **风险与待验证**：Windows/macOS 产物未经实体机验证（experimental）；**签名/公证未做**（Windows 无 Authenticode，macOS 无 Developer ID + notarization）；Windows libmpv 固定 zhongfly 滚动 tag、macOS brew mpv 随上游滚动，ABI 漂移需跟踪；AppImage 组装失败时的 tar.gz 降级预案尚未实际触发过
