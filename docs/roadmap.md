@@ -11,7 +11,7 @@
 | P2 | 播放器基础 UI（控制栏/快捷键/全屏/打开文件） | **in-progress** | Linux CI 冒烟通过；实机交互待验证 |
 | P3 | 音轨/字幕/播放列表/历史 | **done** | Linux CI 构建+单测+冒烟 success（评审修复后 `6b719ac`）；实机交互验证与播放列表持久化列入后续批次 |
 | P4 | mpv 配置兼容层（扫描/导入/回写） | **done**（扫描/导入/向导/脚本与 input.conf 生效已落地并附单测，批次 5 收尾 CI 全绿终审通过；GUI 键位编辑器与设置页入口、回写属后续批次） | Linux CI 构建 + 单测（ctest 8/8）+ Xvfb QML 冒烟 success（评审修复后 head `a35774a`，run 42296377325）；批次记录见 execution-log 批次 5；T13–T19 commits：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
-| P5 | 高级画质（滤镜/HDR/tone-mapping UI） | **in-progress** | v1 子集已落地（CI 全绿 head `167dc5b`，run 42305521632）：Anime4K/SSimSuperRes 着色器可挂载（分辨率分组决策表 + 面板管理列表）、HDR→SDR tone-mapping 可配置（auto/bt.2390/mobius/hable，spline/bt.2446a 为 gpu-next 专属、当前 vo=libmpv 管线不可用）、画质集中 UI（控制栏 ✦ 抽屉）、掉帧自动降档、settings.json quality 节持久化；单测 11/11（含 QualityProfileEngine 决策表与 settings quality 读写）。**未含项**：RIFE/VS 补帧、ICC 自动加载、着色器商店、GPU 档位检测/压制组词库、off 档恢复用户导入值（现为 mpv 默认值）。设计见 architecture.md「画质引擎（P5 v1）」 |
+| P5 | 高级画质（滤镜/HDR/tone-mapping UI） | **in-progress** | v1 子集已落地（CI 全绿 head `167dc5b`，run 42305521632）：Anime4K/SSimSuperRes 着色器可挂载（分辨率分组决策表 + 面板管理列表）、HDR→SDR tone-mapping 可配置（auto/bt.2390/mobius/hable，spline/bt.2446a 为 gpu-next 专属、当前 vo=libmpv 管线不可用）、画质集中 UI（控制栏 ✦ 抽屉）、掉帧自动降档、settings.json quality 节持久化；单测 10/10（含 QualityProfileEngine 决策表与 settings quality 读写）。**未含项**：RIFE/VS 补帧、ICC 自动加载、着色器商店、GPU 档位检测/压制组词库、off 档恢复用户导入值（现为 mpv 默认值）。设计见 architecture.md「画质引擎（P5 v1）」 |
 | P6 | 媒体库与文件管理 | pending | — |
 | P7 | 音乐模式（歌词/EQ） | pending | — |
 | P8 | 插件生态（脚本/着色器管理；格式目标 = manager.json 兼容，见 nativeization-plan.md §4） | pending | — |
