@@ -7,6 +7,7 @@
 #include <QUrl>
 #include <QtQml/QtQml>
 
+#include "history/HistoryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
 
@@ -39,8 +40,15 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Declared after the engine so it is destroyed first (its connections to
+    // the engine must not outlive the engine's mpv handle).
+    HistoryStore historyStore(&mpvEngine, HistoryStore::defaultFilePath(),
+                              &mpvEngine);
+
     QQmlApplicationEngine view;
     view.rootContext()->setContextProperty(QStringLiteral("mpvEngine"), &mpvEngine);
+    view.rootContext()->setContextProperty(QStringLiteral("historyStore"),
+                                           &historyStore);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

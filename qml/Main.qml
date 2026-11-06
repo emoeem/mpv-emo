@@ -144,6 +144,31 @@ ApplicationWindow {
             text: qsTr("Open a file to start playback  (O)")
             color: "#8a8a96"
         }
+
+        // Recently played, persisted by HistoryStore; click to replay.
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: historyStore.entries.length > 0
+            text: qsTr("Recently played")
+            font.weight: Font.DemiBold
+            color: "#cfcfd8"
+        }
+        ListView {
+            id: historyList
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: historyStore.entries.length > 0
+            width: Math.min(root.width * 0.6, 560)
+            height: Math.min(contentHeight, 180)
+            clip: true
+            model: historyStore.entries
+            delegate: ItemDelegate {
+                width: ListView.view.width
+                text: (modelData.title && modelData.title.length > 0)
+                      ? modelData.title : modelData.path
+                onClicked: mpvEngine.loadFile(modelData.path)
+            }
+            ScrollIndicator.vertical: ScrollIndicator {}
+        }
     }
 
     // Bottom control bar; auto-hides during playback when the mouse is idle.

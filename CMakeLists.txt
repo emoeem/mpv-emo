@@ -19,12 +19,14 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)
 
-# Core library: libmpv engine wrapper, QML video item, config parsing.
+# Core library: libmpv engine wrapper, QML video item, config parsing,
+# playback history.
 # Kept as a separate target so unit tests can link it without the app entry point.
 add_library(emo_core STATIC
     src/mpv/MpvEngine.cpp
     src/mpv/MpvItem.cpp
     src/config/MpvConfigParser.cpp
+    src/history/HistoryStore.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core
