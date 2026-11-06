@@ -237,12 +237,13 @@ void TestQualityProfileEngine::nonHdrDoesNotTouchToneMappingOptions()
 
 void TestQualityProfileEngine::autoContentModeFollowsAnimatedHint()
 {
-    const QStringList shaders{u"SSimSuperRes.glsl"_s};
-    const auto animeInfo = makeInfo(1080, 23.976, u"animated"_s, false, shaders);
+    // Auto + animated hint resolves to an Anime4K group.
+    const auto animeInfo = makeInfo(1080, 23.976, u"animated"_s, false, fullAnime4kSet());
     const QPE::Result anime = QPE::compute(animeInfo, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
     QVERIFY(anime.shaders.first().contains(u"Anime4K"_s));
 
-    const auto liveInfo = makeInfo(1080, 23.976, QString(), false, shaders);
+    // Auto without the hint falls back to the live path.
+    const auto liveInfo = makeInfo(1080, 23.976, QString(), false, QStringList{u"SSimSuperRes.glsl"_s});
     const QPE::Result live = QPE::compute(liveInfo, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
     QCOMPARE(live.shaders, (QStringList{u"SSimSuperRes.glsl"_s}));
 }
