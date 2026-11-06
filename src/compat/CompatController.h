@@ -90,8 +90,9 @@ private:
     // startupOptions).
     QVariantMap buildStandaloneOptions() const;
     // Returns the path of EmoPlay's own empty input.conf, creating it if
-    // needed; emits errorOccurred when creation fails.
-    QString ensureOwnInputConf() const;
+    // needed; emits errorOccurred when creation fails. Non-const: it writes
+    // the file and may emit.
+    QString ensureOwnInputConf();
     void persistDecision(const QString &decision, const QStringList &selected);
 
     AppSettings m_settings;

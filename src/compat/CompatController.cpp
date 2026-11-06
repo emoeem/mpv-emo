@@ -174,7 +174,7 @@ QVariantMap CompatController::buildStandaloneOptions() const
     return {};
 }
 
-QString CompatController::ensureOwnInputConf() const
+QString CompatController::ensureOwnInputConf()
 {
     const QString path = m_appDataDir + QStringLiteral("/input.conf");
     if (!QFile::exists(path)) {
