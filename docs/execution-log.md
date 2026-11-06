@@ -39,3 +39,20 @@
   - aid/sid 一律以字符串下发（"2"/"no"），规避 mpv choice 属性的数值格式边界
   - 播放列表暂不落盘（mpv 会话内）；roadmap P3 原文的「持久化」移入 P3 收尾
 - **风险与待验证**：同样无本地编译，CI 只验证「构建+单测+能启动」；抽屉/字幕/列表的实机交互待用户验证；test_history_store 仅覆盖无媒体场景，真实 loadfile 路径需集成测试（后续批次）
+
+## 2026-11-07 · 批次 3 收尾：CI 结论与评审处置
+
+- **任务**：T9–T12（P3：音轨/字幕、播放列表、播放历史及测试）
+- **涉及 commit**（`git log --oneline` 实查；P3 批次实际 7 条——T9/T10 的 feature 提交在「最近 5 条」窗口之外，一并录入）：
+  - `6cc4ec0` feat(ui): audio/subtitle track drawer with external subtitle loading (P3)（T9）
+  - `38e608d` feat(mpv): playlist mirroring and playlist side drawer (P3)（T10）
+  - `7e202b0` feat(history): HistoryStore with JSON persistence and idle-screen recent list (P3)（T11）
+  - `ef2395a` test(history): headless Qt Test coverage for HistoryStore（T12）
+  - `5e34bd0` docs: record P3 modules (tracks/playlist/history) and batch status
+  - `986262b` fix(history): resolve the current path live in the 5s position refresh（评审修复）
+  - `6b719ac` fix(ui): give the Tracks drawer button a distinct glyph（评审修复）
+- **CI 结论**：**success**（`env -u GH_TOKEN gh run list --repo emoeem/mpv-emo` 实查）——批次主体推送（head `5e34bd0`，run 42257300914，1m10s）与评审修复推送（head `6b719ac`，run 42259020019，1m6s）两次 run 均 success，覆盖 Ubuntu 24.04 构建 + ctest + Xvfb QML 启动冒烟
+- **评审发现的问题与处置**：
+  1. **HistoryStore 5s position 刷新竞态**（`986262b` 修复）：`onTimerTick` 依赖 `fileLoaded` 时缓存的 `m_currentPath`；播放列表切到下一文件时，mpv core 可能已暴露新文件的 time-pos 而 FILE_LOADED 事件仍排队在 wakeup→GUI 事件泵中，落在该窗口的 tick 会把新文件的 ~0 位置写进上一条历史、毁掉断点续播。处置：tick 内与 time-pos 一道实时读 `getProperty("path")`（空 path = 加载间隙 = no-op），删除缓存成员，同时符合 architecture.md 决策 7「不缓存播放状态」。
+  2. **Tracks 抽屉按钮字形易混**（`6b719ac` 修复）：♪♪（\u266B）与同排静音按钮的 ♪（\u266A）易误触。处置：改用 ⚙（\u2699）；评审另一候选 ≡（\u2261）因与相邻播放列表按钮 ☰（\u2630）形似被否决。
+- **风险与待验证**：实机交互（抽屉/字幕/列表/历史回放）与播放列表磁盘持久化仍未完成，已列入 roadmap「后续批次」的 P3 收尾项
