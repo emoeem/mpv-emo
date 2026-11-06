@@ -41,16 +41,6 @@ QVariant nodeToVariant(const mpv_node *node)
     }
 }
 
-// Resolve user input to something mpv accepts: local file paths stay as-is,
-// file:// URLs become local paths, everything else (http(s), ytdl) passes through.
-QString toMediaSource(const QString &pathOrUrl)
-{
-    const QUrl url(pathOrUrl);
-    if (url.isLocalFile())
-        return url.toLocalFile();
-    return pathOrUrl;
-}
-
 } // namespace
 
 MpvEngine::MpvEngine(QObject *parent)
@@ -250,9 +240,17 @@ QVariant MpvEngine::getProperty(const QString &name) const
     return result;
 }
 
+QString MpvEngine::toMediaPath(const QString &pathOrUrl)
+{
+    const QUrl url(pathOrUrl);
+    if (url.isLocalFile())
+        return url.toLocalFile();
+    return pathOrUrl;
+}
+
 void MpvEngine::loadFile(const QString &pathOrUrl)
 {
-    command({QStringLiteral("loadfile"), toMediaSource(pathOrUrl)});
+    command({QStringLiteral("loadfile"), toMediaPath(pathOrUrl)});
 }
 
 void MpvEngine::emitError(int mpvErr, const char *what)

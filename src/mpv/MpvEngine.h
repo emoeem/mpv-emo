@@ -49,6 +49,12 @@ public:
     // Accepts local paths, file:// URLs and network URLs (http(s)://...).
     Q_INVOKABLE void loadFile(const QString &pathOrUrl);
 
+    // Resolves user input to something mpv accepts: local file paths stay
+    // as-is, file:// URLs become local paths, everything else (http(s),
+    // ytdl) passes through. Shared by loadFile and the sub-add/loadfile
+    // commands issued for external subtitles and playlist entries.
+    static QString toMediaPath(const QString &pathOrUrl);
+
 signals:
     void errorOccurred(const QString &message);
     void positionChanged(double seconds);

@@ -53,6 +53,15 @@ public slots:
     void seek(double seconds);   // absolute position in seconds
     void seekBy(double offset);  // relative offset in seconds
 
+    // Track selection: |id| is a track id from trackList (number) or the
+    // string "no" to turn the track off. Requests only — the resulting
+    // selection comes back through trackListChanged.
+    void selectAudioTrack(const QVariant &id);
+    void selectSubtitleTrack(const QVariant &id);
+    // Loads an external subtitle file (local path or file:// URL) and
+    // selects it immediately (sub-add ... select).
+    void loadExternalSubtitle(const QString &path);
+
 signals:
     void positionChanged(double position);
     void durationChanged(double duration);

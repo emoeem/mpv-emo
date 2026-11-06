@@ -213,3 +213,22 @@ void MpvItem::seekBy(double offset)
         m_engine->command({QStringLiteral("seek"), QString::number(offset),
                            QStringLiteral("relative")});
 }
+
+void MpvItem::selectAudioTrack(const QVariant &id)
+{
+    if (m_engine)
+        m_engine->setProperty(QStringLiteral("aid"), id.toString());
+}
+
+void MpvItem::selectSubtitleTrack(const QVariant &id)
+{
+    if (m_engine)
+        m_engine->setProperty(QStringLiteral("sid"), id.toString());
+}
+
+void MpvItem::loadExternalSubtitle(const QString &path)
+{
+    if (m_engine)
+        m_engine->command({QStringLiteral("sub-add"), MpvEngine::toMediaPath(path),
+                           QStringLiteral("select")});
+}

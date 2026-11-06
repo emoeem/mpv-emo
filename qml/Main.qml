@@ -23,6 +23,15 @@ ApplicationWindow {
         return (h > 0 ? h + ":" : "") + mm + ":" + ss
     }
 
+    // Human-readable label for a track-list entry, e.g. "Title [en] ".
+    function trackLabel(track, fallback) {
+        var name = (track.title && track.title.length > 0)
+                   ? track.title : fallback + " " + track.id
+        if (track.lang && track.lang.length > 0)
+            name += "  [" + track.lang + "]"
+        return name
+    }
+
     function showControlsTemporarily() {
         controls.opacity = 1
         hideTimer.restart()
@@ -215,6 +224,18 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 IconButton {
+                    glyph: "\u2630"
+                    ToolTip.text: qsTr("Playlist")
+                    onClicked: playlistDrawer.opened ? playlistDrawer.close()
+                                                     : playlistDrawer.open()
+                }
+                IconButton {
+                    glyph: "\u266B"
+                    ToolTip.text: qsTr("Tracks")
+                    onClicked: tracksDrawer.opened ? tracksDrawer.close()
+                                                   : tracksDrawer.open()
+                }
+                IconButton {
                     glyph: "\u266A"
                     opacity: mpvItem.muted ? 0.4 : 1
                     ToolTip.text: qsTr("Mute")
@@ -296,6 +317,90 @@ ApplicationWindow {
         onAccepted: mpvEngine.loadFile(selectedFile)
     }
 
+    // Track selection side drawer: audio tracks and subtitles come from the
+    // engine's mirrored track-list; the marked entry is mpv's "selected".
+    Drawer {
+        id: tracksDrawer
+        edge: Qt.RightEdge
+        width: Math.min(root.width * 0.38, 380)
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 4
+
+            Label {
+                text: qsTr("Audio tracks")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            Column {
+                Layout.fillWidth: true
+                Repeater {
+                    model: mpvItem.trackList.filter(function (t) { return t.type === "audio" })
+                    delegate: ItemDelegate {
+                        width: parent.width
+                        highlighted: modelData.selected === true
+                        text: root.trackLabel(modelData, qsTr("Audio"))
+                        onClicked: mpvItem.selectAudioTrack(modelData.id)
+                    }
+                }
+                ItemDelegate {
+                    width: parent.width
+                    text: qsTr("Audio off")
+                    highlighted: !mpvItem.trackList.some(function (t) {
+                        return t.type === "audio" && t.selected === true
+                    })
+                    onClicked: mpvItem.selectAudioTrack("no")
+                }
+            }
+
+            Label {
+                text: qsTr("Subtitles")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            Column {
+                Layout.fillWidth: true
+                Repeater {
+                    model: mpvItem.trackList.filter(function (t) { return t.type === "sub" })
+                    delegate: ItemDelegate {
+                        width: parent.width
+                        highlighted: modelData.selected === true
+                        text: root.trackLabel(modelData, qsTr("Subtitle"))
+                        onClicked: mpvItem.selectSubtitleTrack(modelData.id)
+                    }
+                }
+                ItemDelegate {
+                    width: parent.width
+                    text: qsTr("Subtitles off")
+                    highlighted: !mpvItem.trackList.some(function (t) {
+                        return t.type === "sub" && t.selected === true
+                    })
+                    onClicked: mpvItem.selectSubtitleTrack("no")
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            Button {
+                Layout.fillWidth: true
+                text: qsTr("Load external subtitle…")
+                onClicked: subtitleDialog.open()
+            }
+        }
+    }
+
+    FileDialog {
+        id: subtitleDialog
+        title: qsTr("Load external subtitle")
+        nameFilters: [
+            qsTr("Subtitle files (*.srt *.ass *.ssa *.sub *.vtt *.idx *.sup)"),
+            qsTr("All files (*)")
+        ]
+        onAccepted: mpvItem.loadExternalSubtitle(subtitleDialog.selectedFile)
+    }
+
     Shortcut { sequence: "Space"; onActivated: mpvItem.togglePlayPause() }
     Shortcut { sequence: "Left"; onActivated: mpvItem.seekBy(-5) }
     Shortcut { sequence: "Right"; onActivated: mpvItem.seekBy(5) }
@@ -310,6 +415,14 @@ ApplicationWindow {
     Shortcut { sequence: "M"; onActivated: mpvItem.muted = !mpvItem.muted }
     Shortcut { sequence: "F"; onActivated: root.toggleFullscreen() }
     Shortcut { sequence: "O"; onActivated: fileDialog.open() }
+    Shortcut {
+        sequence: "T"
+        onActivated: tracksDrawer.opened ? tracksDrawer.close() : tracksDrawer.open()
+    }
+    Shortcut {
+        sequence: "S"
+        onActivated: if (!mpvItem.idle) subtitleDialog.open()
+    }
     Shortcut { sequence: "Q"; onActivated: root.close() }
     Shortcut {
         sequence: "Esc"
