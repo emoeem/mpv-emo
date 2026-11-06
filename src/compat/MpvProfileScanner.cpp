@@ -132,6 +132,8 @@ QString MpvProfileScanner::locateConfigDirIn(const QString &homeDir,
                                              const QString &xdgConfigHomeDir,
                                              const QString &appDataDir)
 {
+    // Only the Windows branch consults %APPDATA%.
+    Q_UNUSED(appDataDir);
     QStringList candidates;
 #if defined(Q_OS_WIN)
     // Windows: mpv reads %APPDATA%\mpv (or portable_config next to mpv.exe,

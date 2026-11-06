@@ -9,23 +9,23 @@ namespace {
 QString baseKeyName(int key)
 {
     switch (key) {
-    case Qt::Key_Escape: return "ESC";
-    case Qt::Key_Tab: return "TAB";
-    case Qt::Key_Backtab: return "TAB";
-    case Qt::Key_Backspace: return "BS";
-    case Qt::Key_Return: return "ENTER";
-    case Qt::Key_Enter: return "ENTER";
-    case Qt::Key_Insert: return "INS";
-    case Qt::Key_Delete: return "DEL";
-    case Qt::Key_Home: return "HOME";
-    case Qt::Key_End: return "END";
-    case Qt::Key_Left: return "left";
-    case Qt::Key_Up: return "up";
-    case Qt::Key_Right: return "right";
-    case Qt::Key_Down: return "down";
-    case Qt::Key_PageUp: return "PGUP";
-    case Qt::Key_PageDown: return "PGDWN";
-    case Qt::Key_Space: return "SPACE";
+    case Qt::Key_Escape: return QLatin1String("ESC");
+    case Qt::Key_Tab: return QLatin1String("TAB");
+    case Qt::Key_Backtab: return QLatin1String("TAB");
+    case Qt::Key_Backspace: return QLatin1String("BS");
+    case Qt::Key_Return: return QLatin1String("ENTER");
+    case Qt::Key_Enter: return QLatin1String("ENTER");
+    case Qt::Key_Insert: return QLatin1String("INS");
+    case Qt::Key_Delete: return QLatin1String("DEL");
+    case Qt::Key_Home: return QLatin1String("HOME");
+    case Qt::Key_End: return QLatin1String("END");
+    case Qt::Key_Left: return QLatin1String("left");
+    case Qt::Key_Up: return QLatin1String("up");
+    case Qt::Key_Right: return QLatin1String("right");
+    case Qt::Key_Down: return QLatin1String("down");
+    case Qt::Key_PageUp: return QLatin1String("PGUP");
+    case Qt::Key_PageDown: return QLatin1String("PGDWN");
+    case Qt::Key_Space: return QLatin1String("SPACE");
     default: break;
     }
 
@@ -41,17 +41,17 @@ QString baseKeyName(int key)
 
     // Punctuation that can appear under Ctrl in imported bindings.
     switch (key) {
-    case Qt::Key_Comma: return ",";
-    case Qt::Key_Period: return ".";
-    case Qt::Key_Slash: return "/";
-    case Qt::Key_Semicolon: return ";";
-    case Qt::Key_Apostrophe: return "'";
-    case Qt::Key_BracketLeft: return "[";
-    case Qt::Key_BracketRight: return "]";
-    case Qt::Key_Minus: return "-";
-    case Qt::Key_Equal: return "=";
-    case Qt::Key_Backslash: return "\\";
-    case Qt::Key_QuoteLeft: return "`";
+    case Qt::Key_Comma: return QLatin1String(",");
+    case Qt::Key_Period: return QLatin1String(".");
+    case Qt::Key_Slash: return QLatin1String("/");
+    case Qt::Key_Semicolon: return QLatin1String(";");
+    case Qt::Key_Apostrophe: return QLatin1String("'");
+    case Qt::Key_BracketLeft: return QLatin1String("[");
+    case Qt::Key_BracketRight: return QLatin1String("]");
+    case Qt::Key_Minus: return QLatin1String("-");
+    case Qt::Key_Equal: return QLatin1String("=");
+    case Qt::Key_Backslash: return QLatin1String("\\");
+    case Qt::Key_QuoteLeft: return QLatin1String("`");
     default: break;
     }
     return QString();
