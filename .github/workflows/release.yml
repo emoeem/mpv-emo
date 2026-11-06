@@ -238,8 +238,11 @@ jobs:
           if-no-files-found: error
 
   macos:
-    name: macOS 14 / arm64 (Qt 6.4.3 universal, brew libmpv)
-    runs-on: macos-14
+    # macos-14 已于 2026-11-02 从 GitHub Actions 退役（runner-images #15226），
+    # macos-13 更早退役；macos-15 为 arm64。Qt 6.4.3 的 macOS 包是 universal
+    # （x86_64/arm64，见 qtsdkrepository Updates.xml），在 arm64 上可用。
+    name: macOS 15 / arm64 (Qt 6.4.3 universal, brew libmpv)
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4

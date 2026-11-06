@@ -49,6 +49,17 @@ target_compile_definitions(emoplay PRIVATE
 #  - macOS: produce the .app bundle that macdeployqt processes.
 if(WIN32)
     set_target_properties(emoplay PROPERTIES WIN32_EXECUTABLE TRUE)
+    if(MSVC)
+        # Qt 6.4 maps QT_MAKE_CHECKED_ARRAY_ITERATOR to
+        # stdext::make_checked_array_iterator, but qvarlengtharray.h never
+        # includes <iterator>; current MSVC STL versions no longer pull it in
+        # transitively, so the build dies with C3861/C2065 ('stdext' not
+        # found) in qvarlengtharray.h. Qt 6.5.3 fixed this by adding the
+        # include there (and 6.6.3 dropped the stdext usage altogether for
+        # _MSC_VER >= 1938); force-including <iterator> keeps Qt 6.4.3
+        # buildable unmodified.
+        add_compile_options(/FIiterator)
+    endif()
 elseif(APPLE)
     set_target_properties(emoplay PROPERTIES
         MACOSX_BUNDLE TRUE
