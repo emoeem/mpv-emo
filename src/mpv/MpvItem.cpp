@@ -5,7 +5,7 @@
 #include <QMetaObject>
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObject>
-#include <QQuickWindow>
+#include <QQuickOpenGLUtils>
 
 // mpv render API: client.h (via MpvEngine.h) only declares the client API;
 // the render context and its OpenGL params live in these two headers.
@@ -81,8 +81,9 @@ void MpvRenderer::render()
     if (!m_mpvGl)
         return;
 
-    if (QQuickWindow *win = m_item->window())
-        win->resetOpenGLState();
+    // Qt6 replacement for QQuickWindow::resetOpenGLState(): resets the state
+    // of the context that is current on the render thread.
+    QQuickOpenGLUtils::resetOpenGLState();
 
     QOpenGLFramebufferObject *fbo = framebufferObject();
     if (!fbo)
