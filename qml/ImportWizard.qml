@@ -83,10 +83,11 @@ Dialog {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: "#cfcfd8"
+            // Single literal per qsTr: JS has no C-style adjacent-string
+            // concatenation, and translations map to whole literals.
             text: compatController.configDetected
-                  ? qsTr("Found an mpv configuration in %1. "
-                         "How should EmoPlay use it?")
-                    .arg(compatController.sourceDir)
+                  ? qsTr("Found an mpv configuration in %1. How should EmoPlay use it?")
+                        .arg(compatController.sourceDir)
                   : qsTr("No existing mpv configuration was found.")
         }
 
@@ -141,9 +142,7 @@ Dialog {
             wrapMode: Text.WordWrap
             font.pixelSize: 12
             color: "#8a8a96"
-            text: qsTr("Imported settings apply on the next launch. Your mpv "
-                       "directory is never modified — EmoPlay only reads from "
-                       "it, and writes stay inside its own data folder.")
+            text: qsTr("Imported settings apply on the next launch. Your mpv directory is never modified — EmoPlay only reads from it, and writes stay inside its own data folder.")
         }
     }
 }
