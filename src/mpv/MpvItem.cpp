@@ -1,6 +1,7 @@
 #include "mpv/MpvItem.h"
 
 #include "mpv/MpvEngine.h"
+#include "quality/QualityProfileEngine.h"
 
 #include <QMetaObject>
 #include <QOpenGLContext>
@@ -13,6 +14,9 @@
 #include <mpv/render_gl.h>
 
 namespace {
+
+// Dropped-frame sampling window for the P5 auto-downgrade path.
+constexpr int kDropSampleIntervalMs = 2000;
 
 // Invoked by libmpv on its render thread whenever a new frame is available.
 // Queues a scene graph update so render() runs again with a fresh FBO.
@@ -152,6 +156,47 @@ MpvItem::MpvItem(QQuickItem *parent)
         m_idle = v;
         emit idleChanged(v);
     });
+    connect(m_engine, &MpvEngine::videoParamsChanged, this, [this](const QVariantMap &params) {
+        m_videoWidth = params.value(QStringLiteral("w")).toInt();
+        m_videoHeight = params.value(QStringLiteral("h")).toInt();
+        m_hdrActive = QualityProfileEngine::isHdrVideoParams(params);
+        emit videoSizeChanged();
+        emit hdrActiveChanged(m_hdrActive);
+    });
+    connect(m_engine, &MpvEngine::containerFpsChanged, this, [this](double v) {
+        m_fps = v;
+        emit fpsChanged(v);
+    });
+    connect(m_engine, &MpvEngine::frameDropCountChanged, this, [this](qlonglong v) {
+        m_droppedFrames = v;
+        emit droppedFramesChanged(v);
+    });
+
+    // Reset the drop baseline on every file so rates never mix files.
+    connect(m_engine, &MpvEngine::fileLoaded, this, [this]() {
+        m_lastDroppedSample = m_droppedFrames;
+    });
+
+    // 2s dropped-frame sampling for the P5 auto-downgrade path.
+    m_dropSampleTimer.setInterval(kDropSampleIntervalMs);
+    m_dropSampleTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_dropSampleTimer, &QTimer::timeout, this, &MpvItem::sampleDroppedFrames);
+    m_dropSampleTimer.start();
+}
+
+void MpvItem::sampleDroppedFrames()
+{
+    const double windowSeconds = kDropSampleIntervalMs / 1000.0;
+    qlonglong delta = m_droppedFrames - m_lastDroppedSample;
+    m_lastDroppedSample = m_droppedFrames;
+    if (delta < 0)
+        delta = 0; // counter reset (new file) — treat as no drops
+
+    const double rate = static_cast<double>(delta) / windowSeconds;
+    if (rate != m_droppedFrameRate) {
+        m_droppedFrameRate = rate;
+        emit droppedFrameRateChanged(m_droppedFrameRate);
+    }
 }
 
 MpvItem::~MpvItem() = default;
