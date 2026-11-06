@@ -240,9 +240,15 @@ Result compute(const MediaInfo &info, const UserPrefs &prefs)
     const bool highFps = info.fps >= 50.0;
 
     // Shader groups: high tier only, never on HDR sources (HDR 避让) and
-    // never on high-frame-rate sources.
+    // never on high-frame-rate sources. With unknown video parameters
+    // (height<=0, e.g. media info not decoded yet or audio-only files) no
+    // group is mounted at all: the resolution table and the HDR/HFR checks
+    // cannot be evaluated — the caller re-runs the table when
+    // video-params/container-fps arrive.
     QStringList shaders;
-    if (prefs.qualityTier == QualityTier::High && !info.isHdr && !highFps) {
+    const bool paramsKnown = info.height > 0;
+    if (paramsKnown && prefs.qualityTier == QualityTier::High && !info.isHdr
+        && !highFps) {
         const QString group = anime
                                   ? anime4kGroupForHeight(info.height)
                                   : QStringLiteral("SSimSuperRes");

@@ -64,6 +64,7 @@ private slots:
     void animeHighUhdMountsLightestGroup();
     void liveHighMountsSsimSuperResWhenAvailable();
     void missingShaderFilesAreSkipped();
+    void unknownVideoParametersSkipShaderGroups();
     void mediumAndLowTiersNeverMountShaders();
     void highFpsStripsShaderGroupsButKeepsScale();
     void hdrAvoidsShadersAndSetsToneMappingByTier();
@@ -159,6 +160,24 @@ void TestQualityProfileEngine::missingShaderFilesAreSkipped()
                                   QStringList{u"Anime4K/Anime4K_Clamp_Highlights.glsl"_s});
     const QPE::Result partialResult = QPE::compute(partial, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
     QCOMPARE(partialResult.shaders, (QStringList{u"Anime4K/Anime4K_Clamp_Highlights.glsl"_s}));
+}
+
+void TestQualityProfileEngine::unknownVideoParametersSkipShaderGroups()
+{
+    // Unknown video parameters (height 0: media info not decoded yet, or
+    // audio-only files) must not mount any group — neither the heaviest
+    // anime chain (which height=0 would otherwise resolve to) nor the
+    // live path (HDR/HFR avoidance cannot be evaluated). Scale/deband
+    // still apply; the caller reruns the table when params arrive.
+    const auto animeInfo = makeInfo(0, 0.0, u"animated"_s, false, fullAnime4kSet());
+    const QPE::Result anime = QPE::compute(animeInfo, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
+    QVERIFY(anime.shaders.isEmpty());
+    QCOMPARE(anime.options.value(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+    QCOMPARE(anime.options.value(u"deband"_s).toBool(), true);
+
+    const auto liveInfo = makeInfo(0, 0.0, QString(), false, QStringList{u"SSimSuperRes.glsl"_s});
+    const QPE::Result live = QPE::compute(liveInfo, makePrefs(QPE::ContentMode::Live, QPE::QualityTier::High));
+    QVERIFY(live.shaders.isEmpty());
 }
 
 void TestQualityProfileEngine::mediumAndLowTiersNeverMountShaders()
