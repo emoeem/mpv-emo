@@ -24,6 +24,10 @@ private slots:
     void corruptFileResetsToDefaults();
     void missingDirectoryIsCreatedOnSave();
     void importDecisionTimestamped();
+    // P5 quality section.
+    void qualityDefaultsWhenMissing();
+    void qualitySectionRoundTrips();
+    void qualityCoexistsWithImportDecision();
 
 private:
     QTemporaryDir m_dir;
@@ -155,6 +159,78 @@ void TestAppSettings::importDecisionTimestamped()
     const QString first = settings.importedAt();
     settings.setImportDecision(u"skip"_s);
     QCOMPARE(settings.importedAt(), first);
+}
+
+void TestAppSettings::qualityDefaultsWhenMissing()
+{
+    // A file written before P5 (no quality section) loads with defaults.
+    const QString file = m_dir.filePath(u"pre-quality.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setImportDecision(u"full"_s);
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.qualityContentMode(), u"auto"_s);
+    QCOMPARE(settings.qualityTier(), u"off"_s);
+    QCOMPARE(settings.qualityToneMapping(), u"auto"_s);
+    QCOMPARE(settings.qualityScaleOverride(), QString());
+    QVERIFY(settings.manualShaderList().isEmpty());
+}
+
+void TestAppSettings::qualitySectionRoundTrips()
+{
+    const QString file = m_dir.filePath(u"quality.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setQualityContentMode(u"anime"_s);
+        settings.setQualityTier(u"high"_s);
+        settings.setQualityToneMapping(u"bt.2390"_s);
+        settings.setQualityScaleOverride(u"bilinear"_s);
+        settings.setManualShaderList(
+            QStringList{u"/mpv/shaders/Anime4K/Anime4K_Restore_CNN_M.glsl"_s});
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.qualityContentMode(), u"anime"_s);
+    QCOMPARE(settings.qualityTier(), u"high"_s);
+    QCOMPARE(settings.qualityToneMapping(), u"bt.2390"_s);
+    QCOMPARE(settings.qualityScaleOverride(), u"bilinear"_s);
+    QCOMPARE(settings.manualShaderList(),
+             (QStringList{u"/mpv/shaders/Anime4K/Anime4K_Restore_CNN_M.glsl"_s}));
+
+    // Change a value and verify it round-trips over the previous state.
+    settings.setQualityTier(u"off"_s);
+    QVERIFY(settings.save());
+    AppSettings reloaded(file);
+    QVERIFY(reloaded.load());
+    QCOMPARE(reloaded.qualityTier(), u"off"_s);
+    QCOMPARE(reloaded.qualityContentMode(), u"anime"_s);
+}
+
+void TestAppSettings::qualityCoexistsWithImportDecision()
+{
+    // The P4 import decision and the P5 quality section live in one
+    // document; saving one must not lose the other.
+    const QString file = m_dir.filePath(u"combined.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setImportDecision(u"selective"_s);
+        QVERIFY(settings.save());
+    }
+    {
+        AppSettings settings(file);
+        QVERIFY(settings.load());
+        settings.setQualityTier(u"medium"_s);
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.importDecision(), u"selective"_s);
+    QCOMPARE(settings.qualityTier(), u"medium"_s);
+    QVERIFY(!settings.importedAt().isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestAppSettings)

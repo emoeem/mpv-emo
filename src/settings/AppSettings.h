@@ -7,13 +7,21 @@
 
 // Persisted application settings (settings.json in AppDataLocation).
 //
-// Currently carries the P4 mpv-config import decision:
+// Currently carries:
+//  - the P4 mpv-config import decision:
 //   - importDecision: "" (unset, first run), "full", "selective",
 //     "standalone" or "skip"
 //   - selectedFiles:  relative paths chosen for "selective"
 //   - dontAskAgain:   user chose "skip and don't ask again"
 //   - lastImportSummary: the ImportSummary of the imported configuration
 //   - importedAt:     ISO-8601 timestamp of the decision
+//  - the P5 quality preferences in a nested "quality" section:
+//   - contentMode ("auto"/"anime"/"live", default "auto")
+//   - qualityTier ("off"/"low"/"medium"/"high", default "off")
+//   - toneMappingMode ("auto" or an explicit mpv tone-mapping value,
+//     default "auto")
+//   - scaleOverride ("" = engine picks, or an explicit --scale value)
+//   - manualShaderList (absolute shader paths checked in the quality panel)
 //
 // Storage is a single JSON document written atomically via QSaveFile, mirroring
 // HistoryStore. The file path is injectable so tests use a temporary dir and
@@ -52,6 +60,19 @@ public:
 
     QString importedAt() const { return m_importedAt; }
 
+    // P5 quality section. All setters emit changed() and persist only when
+    // the caller calls save() (same contract as the import decision).
+    QString qualityContentMode() const { return m_qualityContentMode; }
+    void setQualityContentMode(const QString &mode);
+    QString qualityTier() const { return m_qualityTier; }
+    void setQualityTier(const QString &tier);
+    QString qualityToneMapping() const { return m_qualityToneMapping; }
+    void setQualityToneMapping(const QString &mode);
+    QString qualityScaleOverride() const { return m_qualityScaleOverride; }
+    void setQualityScaleOverride(const QString &scale);
+    const QStringList &manualShaderList() const { return m_manualShaderList; }
+    void setManualShaderList(const QStringList &shaders);
+
 signals:
     void changed();
 
@@ -62,4 +83,9 @@ private:
     QStringList m_selectedFiles;
     QVariantMap m_lastImportSummary;
     QString m_importedAt;
+    QString m_qualityContentMode = QStringLiteral("auto");
+    QString m_qualityTier = QStringLiteral("off");
+    QString m_qualityToneMapping = QStringLiteral("auto");
+    QString m_qualityScaleOverride;
+    QStringList m_manualShaderList;
 };
