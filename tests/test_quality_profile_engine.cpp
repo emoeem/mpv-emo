@@ -70,7 +70,7 @@ private slots:
     void hdrAvoidsShadersAndSetsToneMappingByTier();
     void hdrExplicitToneMappingWinsWhenSupported();
     void hdrUnsupportedToneMappingFallsBack();
-    void nonHdrDoesNotTouchToneMappingOptions();
+    void nonHdrResetsToneMappingOptions();
     void autoContentModeFollowsAnimatedHint();
     void explicitContentModeOverridesHint();
     void scaleOverrideWinsWhileActive();
@@ -245,14 +245,14 @@ void TestQualityProfileEngine::hdrUnsupportedToneMappingFallsBack()
     }
 }
 
-void TestQualityProfileEngine::nonHdrDoesNotTouchToneMappingOptions()
+void TestQualityProfileEngine::nonHdrResetsToneMappingOptions()
 {
-    // SDR sources leave the tone-mapping options alone (the user's imported
-    // mpv.conf values keep working).
+    // SDR sources get the tone-mapping series reset on every active apply,
+    // so values left by a previous HDR file cannot leak into SDR playback.
     const auto sdr = makeInfo(1080, 23.976, QString(), false);
     const QPE::Result result = QPE::compute(sdr, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
-    QVERIFY(!result.options.contains(u"tone-mapping"_s));
-    QVERIFY(!result.options.contains(u"target-colorspace-hint"_s));
+    QCOMPARE(result.options.value(u"tone-mapping"_s).toString(), u"auto"_s);
+    QCOMPARE(result.options.value(u"target-colorspace-hint"_s).toBool(), false);
 }
 
 void TestQualityProfileEngine::autoContentModeFollowsAnimatedHint()

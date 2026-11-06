@@ -269,10 +269,14 @@ Result compute(const MediaInfo &info, const UserPrefs &prefs)
     result.options.insert(QStringLiteral("deband"),
                           prefs.debandMode != QLatin1String("no"));
 
+    // Tone-mapping series: managed on every active apply so that values
+    // left by a previous HDR file cannot leak into SDR playback (and vice
+    // versa). While the engine is active it owns the managed option set
+    // (scale/deband behave the same way); the inert-at-off rule keeps
+    // imported values untouched as long as the engine is never engaged.
     if (info.isHdr) {
-        // HDR sources: tone-mapping series instead of shaders. The explicit
-        // user mode wins when it is usable under vo=libmpv; otherwise the
-        // engine picks by tier.
+        // HDR sources: the explicit user mode wins when it is usable under
+        // vo=libmpv; otherwise the engine picks by tier.
         QString tone = prefs.toneMappingMode;
         if (!isSupportedToneMapping(tone) || tone == kToneMappingDefault) {
             tone = prefs.qualityTier == QualityTier::Low
@@ -282,6 +286,9 @@ Result compute(const MediaInfo &info, const UserPrefs &prefs)
         result.options.insert(QStringLiteral("tone-mapping"), tone);
         // gpu-next only in v0.37 (no-op here); set for pipeline parity.
         result.options.insert(QStringLiteral("target-colorspace-hint"), true);
+    } else {
+        result.options.insert(QStringLiteral("tone-mapping"), kToneMappingDefault);
+        result.options.insert(QStringLiteral("target-colorspace-hint"), false);
     }
 
     result.options.insert(QStringLiteral("glsl-shaders"), shaders);
