@@ -39,7 +39,8 @@ int main(int argc, char *argv[])
     CompatController compatController;
     const QVariantMap compatOptions = compatController.startupOptions();
     if (!compatOptions.isEmpty())
-        qInfo("Applying %d imported mpv option(s)", compatOptions.size());
+        qInfo("Applying %lld imported mpv option(s)",
+              static_cast<long long>(compatOptions.size()));
 
     // Destruction order matters: `view` is declared after `mpvEngine`, so it
     // is destroyed first; QML items (and their mpv render contexts) are

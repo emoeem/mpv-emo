@@ -99,8 +99,10 @@ void TestAppSettings::selectiveFileListRoundTrips()
     AppSettings settings(file);
     QVERIFY(settings.load());
     QCOMPARE(settings.importDecision(), u"selective"_s);
+    // Extra parentheses: the comma inside the braced list would otherwise
+    // split the QCOMPARE macro arguments.
     QCOMPARE(settings.selectedFiles(),
-             QStringList{u"mpv.conf"_s, u"scripts/a.lua"_s});
+             (QStringList{u"mpv.conf"_s, u"scripts/a.lua"_s}));
     QCOMPARE(settings.lastImportSummary().value(u"scriptCount"_s).toInt(), 2);
     QCOMPARE(settings.lastImportSummary().value(u"sourceDir"_s).toString(),
              u"/home/user/.config/mpv"_s);
@@ -115,18 +117,18 @@ void TestAppSettings::corruptFileResetsToDefaults()
         QVERIFY(settings.save());
     }
     QVERIFY(QFile(file).size() > 0);
-    QFile file(file);
-    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    file.write("{ not valid json");
-    file.close();
+    QFile corruptFile(file);
+    QVERIFY(corruptFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    corruptFile.write("{ not valid json");
+    corruptFile.close();
 
-    AppSettings settings(file.fileName());
+    AppSettings settings(file);
     QVERIFY(!settings.load());
     QCOMPARE(settings.importDecision(), QString());
     // Saving after corruption rewrites a valid document.
     settings.setImportDecision(u"skip"_s);
     QVERIFY(settings.save());
-    AppSettings reloaded(file.fileName());
+    AppSettings reloaded(file);
     QVERIFY(reloaded.load());
     QCOMPARE(reloaded.importDecision(), u"skip"_s);
 }
