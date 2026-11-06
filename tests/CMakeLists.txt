@@ -2,6 +2,11 @@ add_executable(test_config_parser test_config_parser.cpp)
 target_link_libraries(test_config_parser PRIVATE emo_core Qt6::Test)
 add_test(NAME test_config_parser COMMAND test_config_parser)
 
+# Pure-logic compat tests: no mpv, no GUI, no real HOME access.
+add_executable(test_compat_scanner test_compat_scanner.cpp)
+target_link_libraries(test_compat_scanner PRIVATE emo_core Qt6::Test)
+add_test(NAME test_compat_scanner COMMAND test_compat_scanner)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.
