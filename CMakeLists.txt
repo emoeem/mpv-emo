@@ -33,6 +33,7 @@ add_library(emo_core STATIC
     src/compat/CompatController.cpp
     src/settings/AppSettings.cpp
     src/quality/QualityProfileEngine.cpp
+    src/quality/QualityController.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core

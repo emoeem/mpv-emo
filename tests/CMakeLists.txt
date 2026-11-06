@@ -28,6 +28,14 @@ add_executable(test_quality_profile_engine test_quality_profile_engine.cpp)
 target_link_libraries(test_quality_profile_engine PRIVATE emo_core Qt6::Test)
 add_test(NAME test_quality_profile_engine COMMAND test_quality_profile_engine)
 
+# Quality application path: drives a real idle libmpv core, headless.
+add_executable(test_quality_controller test_quality_controller.cpp)
+target_link_libraries(test_quality_controller PRIVATE emo_core Qt6::Test)
+add_test(NAME test_quality_controller COMMAND test_quality_controller)
+set_tests_properties(test_quality_controller PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 120)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.
