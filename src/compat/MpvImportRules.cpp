@@ -153,6 +153,7 @@ ImportRuleResult MpvImportRules::apply(const QVector<MpvConfEntry> &entries,
         {"screenshot-directory", "screenshots"},
         {"gpu-shader-cache-dir", "shader_cache"},
         {"icc-cache-dir", "icc_cache"},
+        {"demuxer-cache-dir", "demuxer_cache"},
     };
     for (const Redirect &redirect : kRedirects) {
         const QString path = appDataDir + QLatin1Char('/')

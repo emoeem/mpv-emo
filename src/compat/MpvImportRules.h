@@ -31,10 +31,10 @@ struct ImportRuleResult
 //    imported file says (MpvEngine additionally re-asserts them after the
 //    option map is applied, so no rules bug can break the embed).
 // 2. EmoPlay never writes into the user's mpv directory: options that make
-//    the core write state files (watch-later, screenshots, shader/ICC caches,
-//    stats/log dumps) are redirected into EmoPlay's own app data directory,
-//    and `include=` / `profile=` are dropped entirely (arbitrary file loads
-//    and profile definitions are not applied in P4).
+//    the core write state files (watch-later, screenshots, shader/ICC and
+//    demuxer caches, stats/log dumps) are redirected into EmoPlay's own app
+//    data directory, and `include=` / `profile=` are dropped entirely
+//    (arbitrary file loads and profile definitions are not applied in P4).
 //
 // Everything else passes through: hwdec, volume, keep-open, scale, and the
 // like are imported as-is. Values containing `~~` are kept — the engine side

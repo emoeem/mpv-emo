@@ -139,7 +139,7 @@ void TestImportRules::writePathsRedirectedToAppData()
         parse(u"watch-later-dir=~~/cache/watch_later\nvolume=50\n"_s),
         u"/home/user/.config/mpv"_s, appData.path());
 
-    // The four write paths always point into EmoPlay's app data.
+    // The five write paths always point into EmoPlay's app data.
     QCOMPARE(result.options.value(u"watch-later-dir"_s).toString(),
              appData.path() + u"/watch_later"_s);
     QCOMPARE(result.options.value(u"screenshot-directory"_s).toString(),
@@ -148,7 +148,9 @@ void TestImportRules::writePathsRedirectedToAppData()
              appData.path() + u"/shader_cache"_s);
     QCOMPARE(result.options.value(u"icc-cache-dir"_s).toString(),
              appData.path() + u"/icc_cache"_s);
-    QCOMPARE(result.redirected.size(), 4);
+    QCOMPARE(result.options.value(u"demuxer-cache-dir"_s).toString(),
+             appData.path() + u"/demuxer_cache"_s);
+    QCOMPARE(result.redirected.size(), 5);
 }
 
 void TestImportRules::configRelativeScreenshotTemplateStripped()
