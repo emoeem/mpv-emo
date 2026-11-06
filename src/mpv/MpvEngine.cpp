@@ -3,6 +3,8 @@
 #include <QMetaObject>
 #include <QUrl>
 
+#include "compat/MpvKeyName.h"
+
 namespace {
 
 // Convert an mpv_node tree into QVariant for QML consumption.
@@ -255,6 +257,22 @@ QString MpvEngine::toMediaPath(const QString &pathOrUrl)
 void MpvEngine::loadFile(const QString &pathOrUrl)
 {
     command({QStringLiteral("loadfile"), toMediaPath(pathOrUrl)});
+}
+
+void MpvEngine::keyPress(const QString &key)
+{
+    if (!m_mpv || key.isEmpty())
+        return;
+    // Unknown key names fail harmlessly inside mpv; deliberately no UI
+    // feedback (this path runs for every unhandled key press).
+    const QByteArray utf8 = key.toUtf8();
+    const char *args[] = {"keypress", utf8.constData(), nullptr};
+    mpv_command(m_mpv, args);
+}
+
+QString MpvEngine::mpvKeyName(int key, int modifiers, const QString &text) const
+{
+    return MpvKeyName::fromQt(key, modifiers, text);
 }
 
 void MpvEngine::emitError(int mpvErr, const char *what)

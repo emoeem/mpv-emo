@@ -29,6 +29,7 @@ add_library(emo_core STATIC
     src/history/HistoryStore.cpp
     src/compat/MpvProfileScanner.cpp
     src/compat/MpvImportRules.cpp
+    src/compat/MpvKeyName.cpp
     src/settings/AppSettings.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

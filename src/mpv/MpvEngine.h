@@ -49,6 +49,16 @@ public:
     // Accepts local paths, file:// URLs and network URLs (http(s)://...).
     Q_INVOKABLE void loadFile(const QString &pathOrUrl);
 
+    // Feed a key event to mpv's input layer ("keypress" command), so bindings
+    // from an imported input.conf and script-registered bindings fire in the
+    // embedded UI. |key| is an mpv key name ("shift+a", "PGUP", "ctrl+s");
+    // unknown names fail harmlessly inside mpv. QML side: mpvKeyName().
+    Q_INVOKABLE void keyPress(const QString &key);
+    // Qt key event -> mpv key name ("" when unmappable). Delegates to
+    // MpvKeyName::fromQt; exposed for the QML key-forwarding path.
+    Q_INVOKABLE QString mpvKeyName(int key, int modifiers,
+                                   const QString &text) const;
+
     // Resolves user input to something mpv accepts: local file paths stay
     // as-is, file:// URLs become local paths, everything else (http(s),
     // ytdl) passes through. Shared by loadFile and the sub-add/loadfile

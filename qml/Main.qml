@@ -37,6 +37,20 @@ ApplicationWindow {
         hideTimer.restart()
     }
 
+    // Forward a key event to mpv's input layer so bindings from an imported
+    // input.conf (P4 compat layer) and script-registered bindings fire.
+    // Keys already consumed by EmoPlay's own Shortcuts/controls never get
+    // here — those keep their built-in behavior.
+    function forwardKeyEvent(event) {
+        if (event.isAutoRepeat)
+            return
+        var name = mpvEngine.mpvKeyName(event.key, event.modifiers, event.text)
+        if (name.length > 0) {
+            mpvEngine.keyPress(name)
+            event.accepted = true
+        }
+    }
+
     function toggleFullscreen() {
         if (root.isFullscreen)
             root.showNormal()
@@ -109,9 +123,21 @@ ApplicationWindow {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
-        onClicked: function (mouse) { mouse.accepted = true; mpvItem.togglePlayPause() }
+        onClicked: function (mouse) {
+            mouse.accepted = true
+            compatKeys.forceActiveFocus()
+            mpvItem.togglePlayPause()
+        }
         onDoubleClicked: function (mouse) { mouse.accepted = true; root.toggleFullscreen() }
         onPositionChanged: root.showControlsTemporarily()
+    }
+
+    // Default key-focus holder while the video surface is active: keys that
+    // nothing else consumed are forwarded to mpv (see forwardKeyEvent).
+    Item {
+        id: compatKeys
+        focus: true
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
     }
 
     // Center pause indicator (pure shapes, no font dependency).
@@ -184,6 +210,9 @@ ApplicationWindow {
         Behavior on opacity { NumberAnimation { duration: 250 } }
 
         HoverHandler { id: controlsHover }
+
+        // Forward keys not consumed by the sliders/buttons themselves.
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
 
         // Consume clicks on the bar so they do not reach the video MouseArea.
         MouseArea {
@@ -350,6 +379,8 @@ ApplicationWindow {
         id: tracksDrawer
         edge: Qt.RightEdge
         width: Math.min(root.width * 0.38, 380)
+        onClosed: compatKeys.forceActiveFocus()
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
 
         ColumnLayout {
             anchors.fill: parent
@@ -434,6 +465,8 @@ ApplicationWindow {
         id: playlistDrawer
         edge: Qt.RightEdge
         width: Math.min(root.width * 0.42, 440)
+        onClosed: compatKeys.forceActiveFocus()
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
 
         ColumnLayout {
             anchors.fill: parent

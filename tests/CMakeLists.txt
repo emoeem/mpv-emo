@@ -15,6 +15,10 @@ add_executable(test_app_settings test_app_settings.cpp)
 target_link_libraries(test_app_settings PRIVATE emo_core Qt6::Test)
 add_test(NAME test_app_settings COMMAND test_app_settings)
 
+add_executable(test_mpv_key_name test_mpv_key_name.cpp)
+target_link_libraries(test_mpv_key_name PRIVATE emo_core Qt6::Test)
+add_test(NAME test_mpv_key_name COMMAND test_mpv_key_name)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.
