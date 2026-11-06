@@ -255,7 +255,9 @@ ApplicationWindow {
                                                      : playlistDrawer.open()
                 }
                 IconButton {
-                    glyph: "\u266B"
+                    // Gear, not a note: the mute button next to it uses
+                    // "\u266A" and note glyphs are too easy to mix up.
+                    glyph: "\u2699"
                     ToolTip.text: qsTr("Tracks")
                     onClicked: tracksDrawer.opened ? tracksDrawer.close()
                                                    : tracksDrawer.open()
