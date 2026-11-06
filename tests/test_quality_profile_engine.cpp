@@ -73,6 +73,7 @@ private slots:
     void autoContentModeFollowsAnimatedHint();
     void explicitContentModeOverridesHint();
     void scaleOverrideWinsWhileActive();
+    void debandModeOverride();
     void hdrVideoParamsDetection();
     void animatedHintHeuristic();
     void enumStringRoundTrips();
@@ -266,6 +267,26 @@ void TestQualityProfileEngine::scaleOverrideWinsWhileActive()
     const auto info = makeInfo(1080, 23.976, u"animated"_s);
     const QPE::Result result = QPE::compute(info, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::Medium, u"auto"_s, u"bilinear"_s));
     QCOMPARE(result.options.value(u"scale"_s).toString(), u"bilinear"_s);
+}
+
+void TestQualityProfileEngine::debandModeOverride()
+{
+    // "auto" and "yes" keep the table's deband-on while active; "no" wins.
+    const auto info = makeInfo(1080, 23.976, u"animated"_s);
+    const auto prefs = makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High);
+    QCOMPARE(QPE::compute(info, prefs).options.value(u"deband"_s).toBool(), true);
+
+    auto forcedOn = prefs;
+    forcedOn.debandMode = u"yes"_s;
+    QCOMPARE(QPE::compute(info, forcedOn).options.value(u"deband"_s).toBool(), true);
+
+    auto forcedOff = prefs;
+    forcedOff.debandMode = u"no"_s;
+    QCOMPARE(QPE::compute(info, forcedOff).options.value(u"deband"_s).toBool(), false);
+
+    // "off" tier always clears deband, whatever the override says.
+    forcedOff.qualityTier = QPE::QualityTier::Off;
+    QCOMPARE(QPE::compute(info, forcedOff).options.value(u"deband"_s).toBool(), false);
 }
 
 void TestQualityProfileEngine::hdrVideoParamsDetection()

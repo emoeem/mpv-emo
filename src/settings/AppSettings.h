@@ -21,6 +21,7 @@
 //   - toneMappingMode ("auto" or an explicit mpv tone-mapping value,
 //     default "auto")
 //   - scaleOverride ("" = engine picks, or an explicit --scale value)
+//   - debandMode ("auto"/"yes"/"no" user override, default "auto")
 //   - manualShaderList (absolute shader paths checked in the quality panel)
 //
 // Storage is a single JSON document written atomically via QSaveFile, mirroring
@@ -70,6 +71,8 @@ public:
     void setQualityToneMapping(const QString &mode);
     QString qualityScaleOverride() const { return m_qualityScaleOverride; }
     void setQualityScaleOverride(const QString &scale);
+    QString qualityDebandMode() const { return m_qualityDebandMode; }
+    void setQualityDebandMode(const QString &mode);
     const QStringList &manualShaderList() const { return m_manualShaderList; }
     void setManualShaderList(const QStringList &shaders);
 
@@ -87,5 +90,6 @@ private:
     QString m_qualityTier = QStringLiteral("off");
     QString m_qualityToneMapping = QStringLiteral("auto");
     QString m_qualityScaleOverride;
+    QString m_qualityDebandMode = QStringLiteral("auto");
     QStringList m_manualShaderList;
 };

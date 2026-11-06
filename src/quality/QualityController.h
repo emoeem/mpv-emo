@@ -46,6 +46,8 @@ class QualityController : public QObject
     Q_PROPERTY(QString qualityTier READ qualityTier NOTIFY prefsChanged)
     Q_PROPERTY(QString toneMappingMode READ toneMappingMode NOTIFY prefsChanged)
     Q_PROPERTY(QString scaleOverride READ scaleOverride NOTIFY prefsChanged)
+    // "auto"/"yes"/"no" deband override from the panel.
+    Q_PROPERTY(QString debandMode READ debandMode NOTIFY prefsChanged)
     // Scanned "*.glsl" files (relative paths, may include subdirectories)
     // for the panel's shader management list.
     Q_PROPERTY(QVariantList availableShaders READ availableShaders
@@ -67,6 +69,7 @@ public:
     QString qualityTier() const;
     QString toneMappingMode() const;
     QString scaleOverride() const;
+    QString debandMode() const;
     QVariantList availableShaders() const { return m_availableShaders; }
     const QStringList &manualShaders() const { return m_manualShaders; }
     bool autoDowngraded() const { return m_autoDowngraded; }
@@ -81,6 +84,7 @@ public slots:
     void setQualityTier(const QString &tier);
     void setToneMappingMode(const QString &mode);
     void setScaleOverride(const QString &scale);
+    void setDebandMode(const QString &mode);
     // Panel shader list: mount/unmount a relative shader path.
     void setShaderMounted(const QString &relativePath, bool mounted);
     // Dropped-frames-per-second over MpvItem's 2s window. A sustained rate

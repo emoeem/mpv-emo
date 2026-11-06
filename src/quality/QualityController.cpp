@@ -46,6 +46,11 @@ QString QualityController::scaleOverride() const
     return m_settings ? m_settings->qualityScaleOverride() : QString();
 }
 
+QString QualityController::debandMode() const
+{
+    return m_settings ? m_settings->qualityDebandMode() : QString();
+}
+
 void QualityController::startup()
 {
     if (!m_engine)
@@ -129,6 +134,16 @@ void QualityController::setScaleOverride(const QString &scale)
     applyProfile();
 }
 
+void QualityController::setDebandMode(const QString &mode)
+{
+    if (!m_settings || mode == m_settings->qualityDebandMode())
+        return;
+    m_settings->setQualityDebandMode(mode);
+    m_settings->save();
+    emit prefsChanged();
+    applyProfile();
+}
+
 void QualityController::setShaderMounted(const QString &relativePath,
                                          bool mounted)
 {
@@ -185,6 +200,7 @@ void QualityController::applyProfile()
             : userTier;
     prefs.toneMappingMode = toneMappingMode();
     prefs.scaleOverride = scaleOverride();
+    prefs.debandMode = debandMode();
 
     const QualityProfileEngine::MediaInfo info = gatherMediaInfo();
     const QualityProfileEngine::Result result =

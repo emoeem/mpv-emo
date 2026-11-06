@@ -259,8 +259,9 @@ Result compute(const MediaInfo &info, const UserPrefs &prefs)
 
     result.options.insert(QStringLiteral("scale"), scale);
     // Debanding is cheap and always useful while the engine is active
-    // (mpv's own default is "no").
-    result.options.insert(QStringLiteral("deband"), true);
+    // (mpv's own default is "no"); the panel can force it on/off.
+    result.options.insert(QStringLiteral("deband"),
+                          prefs.debandMode != QLatin1String("no"));
 
     if (info.isHdr) {
         // HDR sources: tone-mapping series instead of shaders. The explicit

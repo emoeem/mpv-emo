@@ -77,6 +77,9 @@ struct UserPrefs
     // "" (engine picks by tier) or an explicit --scale value used whenever
     // the engine is active.
     QString scaleOverride;
+    // "auto" (decision table: deband on while the engine is active), "yes"
+    // or "no" — user override from the panel's deband control.
+    QString debandMode = QStringLiteral("auto");
 };
 
 // Engine decision. |options| carries scalar mpv options for

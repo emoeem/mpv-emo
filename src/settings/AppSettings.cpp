@@ -22,6 +22,7 @@ constexpr auto kQualityContentMode = "contentMode";
 constexpr auto kQualityTier = "qualityTier";
 constexpr auto kQualityToneMapping = "toneMappingMode";
 constexpr auto kQualityScaleOverride = "scaleOverride";
+constexpr auto kQualityDebandMode = "debandMode";
 constexpr auto kQualityManualShaders = "manualShaderList";
 
 } // namespace
@@ -54,6 +55,7 @@ bool AppSettings::load()
     m_qualityTier = QStringLiteral("off");
     m_qualityToneMapping = QStringLiteral("auto");
     m_qualityScaleOverride.clear();
+    m_qualityDebandMode = QStringLiteral("auto");
     m_manualShaderList.clear();
 
     QFile file(m_filePath);
@@ -86,6 +88,8 @@ bool AppSettings::load()
         quality.value(QLatin1String(kQualityToneMapping)).toString(m_qualityToneMapping);
     m_qualityScaleOverride =
         quality.value(QLatin1String(kQualityScaleOverride)).toString();
+    m_qualityDebandMode =
+        quality.value(QLatin1String(kQualityDebandMode)).toString(m_qualityDebandMode);
     const QJsonArray shaders =
         quality.value(QLatin1String(kQualityManualShaders)).toArray();
     m_manualShaderList.reserve(shaders.size());
@@ -101,6 +105,7 @@ bool AppSettings::save()
     quality.insert(QLatin1String(kQualityTier), m_qualityTier);
     quality.insert(QLatin1String(kQualityToneMapping), m_qualityToneMapping);
     quality.insert(QLatin1String(kQualityScaleOverride), m_qualityScaleOverride);
+    quality.insert(QLatin1String(kQualityDebandMode), m_qualityDebandMode);
     QJsonArray shaders;
     for (const QString &shader : m_manualShaderList)
         shaders.append(shader);
@@ -169,6 +174,14 @@ void AppSettings::setQualityScaleOverride(const QString &scale)
     if (m_qualityScaleOverride == scale)
         return;
     m_qualityScaleOverride = scale;
+    emit changed();
+}
+
+void AppSettings::setQualityDebandMode(const QString &mode)
+{
+    if (m_qualityDebandMode == mode)
+        return;
+    m_qualityDebandMode = mode;
     emit changed();
 }
 

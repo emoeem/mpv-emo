@@ -176,6 +176,7 @@ void TestAppSettings::qualityDefaultsWhenMissing()
     QCOMPARE(settings.qualityTier(), u"off"_s);
     QCOMPARE(settings.qualityToneMapping(), u"auto"_s);
     QCOMPARE(settings.qualityScaleOverride(), QString());
+    QCOMPARE(settings.qualityDebandMode(), u"auto"_s);
     QVERIFY(settings.manualShaderList().isEmpty());
 }
 
@@ -188,6 +189,7 @@ void TestAppSettings::qualitySectionRoundTrips()
         settings.setQualityTier(u"high"_s);
         settings.setQualityToneMapping(u"bt.2390"_s);
         settings.setQualityScaleOverride(u"bilinear"_s);
+        settings.setQualityDebandMode(u"no"_s);
         settings.setManualShaderList(
             QStringList{u"/mpv/shaders/Anime4K/Anime4K_Restore_CNN_M.glsl"_s});
         QVERIFY(settings.save());
@@ -198,6 +200,7 @@ void TestAppSettings::qualitySectionRoundTrips()
     QCOMPARE(settings.qualityTier(), u"high"_s);
     QCOMPARE(settings.qualityToneMapping(), u"bt.2390"_s);
     QCOMPARE(settings.qualityScaleOverride(), u"bilinear"_s);
+    QCOMPARE(settings.qualityDebandMode(), u"no"_s);
     QCOMPARE(settings.manualShaderList(),
              (QStringList{u"/mpv/shaders/Anime4K/Anime4K_Restore_CNN_M.glsl"_s}));
 
