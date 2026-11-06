@@ -23,6 +23,11 @@ add_executable(test_compat_controller test_compat_controller.cpp)
 target_link_libraries(test_compat_controller PRIVATE emo_core Qt6::Test)
 add_test(NAME test_compat_controller COMMAND test_compat_controller)
 
+# P5 quality engine decision table: pure logic, no mpv, no GUI.
+add_executable(test_quality_profile_engine test_quality_profile_engine.cpp)
+target_link_libraries(test_quality_profile_engine PRIVATE emo_core Qt6::Test)
+add_test(NAME test_quality_profile_engine COMMAND test_quality_profile_engine)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.
