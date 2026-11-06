@@ -7,6 +7,7 @@
 #include <QUrl>
 #include <QtQml/QtQml>
 
+#include "compat/CompatController.h"
 #include "history/HistoryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
@@ -31,11 +32,20 @@ int main(int argc, char *argv[])
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
+    // P4 compat startup order: read settings.json -> scan/apply the recorded
+    // import decision -> initialize(options) -> (QML) first-run wizard when a
+    // config is detected but undecided. Declared before the engine: the
+    // option map must exist before initialize() runs.
+    CompatController compatController;
+    const QVariantMap compatOptions = compatController.startupOptions();
+    if (!compatOptions.isEmpty())
+        qInfo("Applying %d imported mpv option(s)", compatOptions.size());
+
     // Destruction order matters: `view` is declared after `mpvEngine`, so it
     // is destroyed first; QML items (and their mpv render contexts) are
     // released before the mpv core goes away. See MpvItem / MpvEngine docs.
     MpvEngine mpvEngine;
-    if (!mpvEngine.initialize()) {
+    if (!mpvEngine.initialize(compatOptions)) {
         qCritical("Failed to initialize mpv: %s", qPrintable(mpvEngine.lastError()));
         return 1;
     }
@@ -49,6 +59,8 @@ int main(int argc, char *argv[])
     view.rootContext()->setContextProperty(QStringLiteral("mpvEngine"), &mpvEngine);
     view.rootContext()->setContextProperty(QStringLiteral("historyStore"),
                                            &historyStore);
+    view.rootContext()->setContextProperty(QStringLiteral("compatController"),
+                                           &compatController);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

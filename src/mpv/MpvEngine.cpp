@@ -87,6 +87,14 @@ bool MpvEngine::initialize(const QVariantMap &options)
         mpv_set_option_string(m_mpv, it.key().toUtf8().constData(),
                               it.value().toString().toUtf8().constData());
 
+    // Re-assert the embedding-critical options AFTER any imported user
+    // options (P4 compat layer): no value from a user's mpv.conf may change
+    // these, whatever the rules layer decided. Defense in depth — see
+    // docs/architecture.md "配置兼容层".
+    mpv_set_option_string(m_mpv, "vo", "libmpv");
+    mpv_set_option_string(m_mpv, "osc", "no");
+    mpv_set_option_string(m_mpv, "terminal", "no");
+
     int err = mpv_initialize(m_mpv);
     if (err < 0) {
         m_lastError = QString::fromUtf8(mpv_error_string(err));
