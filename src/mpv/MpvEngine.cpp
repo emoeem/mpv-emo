@@ -12,7 +12,7 @@ QVariant nodeToVariant(const mpv_node *node)
     case MPV_FORMAT_NONE:
         return {};
     case MPV_FORMAT_STRING:
-        return QString::fromUtf8(*node->u.string);
+        return QString::fromUtf8(node->u.string);
     case MPV_FORMAT_FLAG:
         return node->u.flag != 0;
     case MPV_FORMAT_INT64:
@@ -33,7 +33,9 @@ QVariant nodeToVariant(const mpv_node *node)
         return map;
     }
     case MPV_FORMAT_BYTE_ARRAY:
-        return QString::fromUtf8(QByteArray(node->u.ba->data, int(node->u.ba->size)));
+        // mpv_byte_array::data is void*; QByteArray needs const char*.
+        return QString::fromUtf8(QByteArray(static_cast<const char *>(node->u.ba->data),
+                                            int(node->u.ba->size)));
     default:
         return {};
     }
@@ -152,7 +154,8 @@ void MpvEngine::handleEvents()
             else if (qstrcmp(prop->name, "media-title") == 0 && prop->format == MPV_FORMAT_STRING)
                 emit mediaTitleChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
             else if (qstrcmp(prop->name, "track-list") == 0 && prop->format == MPV_FORMAT_NODE)
-                emit trackListChanged(nodeToVariant(prop->data).toList());
+                emit trackListChanged(
+                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
             else if (qstrcmp(prop->name, "idle-active") == 0 && prop->format == MPV_FORMAT_FLAG)
                 emit idleActiveChanged(*static_cast<int *>(prop->data) != 0);
             break;
@@ -164,8 +167,9 @@ void MpvEngine::handleEvents()
             emit playbackRestarted();
             break;
         case MPV_EVENT_END_FILE: {
-            const auto *endFile = static_cast<mpv_event_end_file *>(ev->data);
-            emit endFile(int(endFile->reason));
+            // Local must not be named endFile: it would shadow the signal.
+            const auto *endFileEvent = static_cast<mpv_event_end_file *>(ev->data);
+            emit endFile(int(endFileEvent->reason));
             break;
         }
         default:
