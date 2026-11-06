@@ -177,23 +177,47 @@ void MpvEngine::handleEvents()
                     nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
             else if (qstrcmp(prop->name, "idle-active") == 0 && prop->format == MPV_FORMAT_FLAG)
                 emit idleActiveChanged(*static_cast<int *>(prop->data) != 0);
+            // P5 properties. mpv reports unavailable properties (no media
+            // yet, or between files) as MPV_FORMAT_NONE with an INVALID
+            // data pointer (libmpv/client.h mpv_observe_property); those
+            // events must clear the mirrors instead of being dropped, or
+            // stale values from the previous file stick around. Only the
+            // P5 properties handle NONE for now - the pre-existing
+            // playback properties keep their current behavior.
             else if (qstrcmp(prop->name, "video-params") == 0
-                     && prop->format == MPV_FORMAT_NODE)
+                     && (prop->format == MPV_FORMAT_NODE
+                         || prop->format == MPV_FORMAT_NONE))
                 emit videoParamsChanged(
-                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toMap());
+                    prop->format == MPV_FORMAT_NODE
+                        ? nodeToVariant(static_cast<const mpv_node *>(prop->data)).toMap()
+                        : QVariantMap());
             else if (qstrcmp(prop->name, "container-fps") == 0
-                     && prop->format == MPV_FORMAT_DOUBLE)
-                emit containerFpsChanged(*static_cast<double *>(prop->data));
+                     && (prop->format == MPV_FORMAT_DOUBLE
+                         || prop->format == MPV_FORMAT_NONE))
+                emit containerFpsChanged(prop->format == MPV_FORMAT_DOUBLE
+                                             ? *static_cast<double *>(prop->data)
+                                             : 0.0);
             else if (qstrcmp(prop->name, "frame-drop-count") == 0
-                     && prop->format == MPV_FORMAT_NODE)
+                     && (prop->format == MPV_FORMAT_NODE
+                         || prop->format == MPV_FORMAT_NONE))
                 emit frameDropCountChanged(
-                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toLongLong());
+                    prop->format == MPV_FORMAT_NODE
+                        ? nodeToVariant(static_cast<const mpv_node *>(prop->data)).toLongLong()
+                        : 0);
             else if (qstrcmp(prop->name, "current-vo") == 0
-                     && prop->format == MPV_FORMAT_STRING)
-                emit currentVoChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
+                     && (prop->format == MPV_FORMAT_STRING
+                         || prop->format == MPV_FORMAT_NONE))
+                emit currentVoChanged(
+                    prop->format == MPV_FORMAT_STRING
+                        ? QString::fromUtf8(*static_cast<char **>(prop->data))
+                        : QString());
             else if (qstrcmp(prop->name, "video-format") == 0
-                     && prop->format == MPV_FORMAT_STRING)
-                emit videoFormatChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
+                     && (prop->format == MPV_FORMAT_STRING
+                         || prop->format == MPV_FORMAT_NONE))
+                emit videoFormatChanged(
+                    prop->format == MPV_FORMAT_STRING
+                        ? QString::fromUtf8(*static_cast<char **>(prop->data))
+                        : QString());
             break;
         }
         case MPV_EVENT_FILE_LOADED:

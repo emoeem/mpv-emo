@@ -18,6 +18,7 @@ private slots:
     void doubleInitializeRejected();
     void propertyRoundTrip();
     void observedPropertySignals();
+    void unavailablePropertiesEmitClearedValues();
     void commandErrorEmitsErrorSignal();
 };
 
@@ -105,6 +106,38 @@ void TestMpvEngine::commandErrorEmitsErrorSignal()
     engine.command({u"this-command-does-not-exist"_s});
     QTRY_COMPARE(errorSpy.count(), 1);
     QVERIFY(errorSpy.at(0).at(0).toString().contains(u"failed"_s));
+}
+
+void TestMpvEngine::unavailablePropertiesEmitClearedValues()
+{
+    // mpv always sends an initial change notification per observed
+    // property; on an idle engine the P5 properties are unavailable and
+    // arrive as MPV_FORMAT_NONE with an invalid data pointer. The engine
+    // must turn those into cleared values instead of dropping them, or
+    // stale mirrors survive across files.
+    MpvEngine engine;
+    QVERIFY(engine.initialize());
+
+    QSignalSpy paramsSpy(&engine, &MpvEngine::videoParamsChanged);
+    QSignalSpy fpsSpy(&engine, &MpvEngine::containerFpsChanged);
+    QSignalSpy dropsSpy(&engine, &MpvEngine::frameDropCountChanged);
+    QSignalSpy voSpy(&engine, &MpvEngine::currentVoChanged);
+    QSignalSpy formatSpy(&engine, &MpvEngine::videoFormatChanged);
+    QVERIFY(paramsSpy.isValid() && fpsSpy.isValid() && dropsSpy.isValid()
+            && voSpy.isValid() && formatSpy.isValid());
+
+    // The notifications arrive through the wakeup pump; QTRY_* spins the
+    // event loop so the queued handleEvents() runs.
+    QTRY_VERIFY(!paramsSpy.isEmpty());
+    QCOMPARE(paramsSpy.last().first().toMap(), QVariantMap{});
+    QTRY_VERIFY(!fpsSpy.isEmpty());
+    QCOMPARE(fpsSpy.last().first().toDouble(), 0.0);
+    QTRY_VERIFY(!dropsSpy.isEmpty());
+    QCOMPARE(dropsSpy.last().first().toLongLong(), 0);
+    QTRY_VERIFY(!voSpy.isEmpty());
+    QCOMPARE(voSpy.last().first().toString(), QString());
+    QTRY_VERIFY(!formatSpy.isEmpty());
+    QCOMPARE(formatSpy.last().first().toString(), QString());
 }
 
 QTEST_GUILESS_MAIN(TestMpvEngine)
