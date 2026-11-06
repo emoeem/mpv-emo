@@ -3,7 +3,7 @@
 #include "quality/QualityProfileEngine.h"
 
 using namespace Qt::Literals::StringLiterals;
-using QPE = QualityProfileEngine;
+namespace QPE = QualityProfileEngine; // namespace alias, not a type alias
 
 namespace {
 
