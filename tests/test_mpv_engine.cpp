@@ -14,6 +14,7 @@ class TestMpvEngine : public QObject
 
 private slots:
     void initializeSmoke();
+    void scriptAutoloadDisabledByDefault();
     void doubleInitializeRejected();
     void propertyRoundTrip();
     void observedPropertySignals();
@@ -25,6 +26,16 @@ void TestMpvEngine::initializeSmoke()
     MpvEngine engine;
     QVERIFY(engine.initialize());
     QVERIFY(engine.handle() != nullptr);
+}
+
+void TestMpvEngine::scriptAutoloadDisabledByDefault()
+{
+    MpvEngine engine;
+    QVERIFY(engine.initialize());
+    // load-scripts defaults to yes in mpv (options.c) and libmpv's builtin
+    // profile does not disable it, so it must be forced off here: scripts
+    // enter only via the compat controller's explicit "scripts" list.
+    QCOMPARE(engine.getProperty(u"load-scripts"_s).toBool(), false);
 }
 
 void TestMpvEngine::doubleInitializeRejected()

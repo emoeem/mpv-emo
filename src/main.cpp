@@ -37,6 +37,10 @@ int main(int argc, char *argv[])
     // config is detected but undecided. Declared before the engine: the
     // option map must exist before initialize() runs.
     CompatController compatController;
+    QObject::connect(&compatController, &CompatController::errorOccurred,
+                     [](const QString &message) {
+                         qCritical("compat: %s", qPrintable(message));
+                     });
     const QVariantMap compatOptions = compatController.startupOptions();
     if (!compatOptions.isEmpty())
         qInfo("Applying %lld imported mpv option(s)",

@@ -10,18 +10,24 @@ using namespace Qt::Literals::StringLiterals;
 // Headless tests for the compat decision flow. All paths are injected: the
 // scanned config dir is the committed fixture, settings and app data live in
 // temporary directories. The real HOME is never touched.
+//
+// Consent invariant exercised throughout: mpv loads input.conf inside
+// mpv_initialize regardless of --config and auto-loads the config dir's
+// scripts/ when load-scripts=yes, so without an explicit import decision
+// input-conf is pinned to EmoPlay's own empty input.conf (and load-scripts
+// is forced off in MpvEngine — asserted in test_mpv_engine).
 class TestCompatController : public QObject
 {
     Q_OBJECT
 
 private slots:
-    void undecidedShowsPromptAndImportsNothing();
+    void undecidedPinsOwnInputConfAndShowsPrompt();
     void fullImportBuildsOptionMap();
     void fullImportForcesEmbeddingOptions();
     void selectiveImportHonorsFileList();
-    void selectiveImportOfNothingIsEmpty();
+    void selectiveImportOfNothingPinsOwnInputConf();
     void standaloneUsesOwnInputConf();
-    void skipSuppressesPrompt();
+    void skipPinsOwnInputConfAndSuppressesPrompt();
     void decisionPersistsAcrossInstances();
     void missingConfigDirIsUndetected();
     void requestWizardTogglesProperty();
@@ -35,14 +41,20 @@ private:
     }
 };
 
-void TestCompatController::undecidedShowsPromptAndImportsNothing()
+void TestCompatController::undecidedPinsOwnInputConfAndShowsPrompt()
 {
     QTemporaryDir appData;
     QVERIFY(appData.isValid());
 
     CompatController controller(appData.filePath(u"settings.json"_s),
                                 appData.path(), fixtureDir());
-    QCOMPARE(controller.startupOptions(), QVariantMap{});
+    const QVariantMap options = controller.startupOptions();
+    // No decision: nothing from the user config is imported, but mpv's own
+    // fallback must be blocked — input-conf points at our empty file.
+    QCOMPARE(options.value(u"input-conf"_s).toString(),
+             appData.path() + u"/input.conf"_s);
+    QVERIFY(QFileInfo::exists(appData.path() + u"/input.conf"_s));
+    QCOMPARE(options.size(), 1);
     QVERIFY(controller.configDetected());
     QVERIFY(controller.firstRunPromptNeeded());
     QCOMPARE(controller.sourceDir(), fixtureDir());
@@ -71,11 +83,17 @@ void TestCompatController::fullImportBuildsOptionMap()
              fixtureDir() + u"/input.conf"_s);
     // config-dir points at the user's dir for ~~ resolution.
     QCOMPARE(options.value(u"config-dir"_s).toString(), fixtureDir());
-    // Both fixture scripts are listed (comma-separated, absolute).
+    // Both fixture scripts are listed as a PATH list: ':' on Unix, ';' on
+    // Windows (mpv options.rst "--scripts=file1.lua:file2.lua:...").
     const QString scripts = options.value(u"scripts"_s).toString();
     QVERIFY(scripts.contains(fixtureDir() + u"/scripts/a.lua"_s));
     QVERIFY(scripts.contains(fixtureDir() + u"/scripts/lib/b.js"_s));
-    QVERIFY(scripts.contains(u","_s));
+#if defined(Q_OS_WIN)
+    QVERIFY(scripts.contains(u";"_s));
+#else
+    QVERIFY(scripts.contains(u":"_s));
+#endif
+    QVERIFY(!scripts.contains(u","_s));
     // fonts-dir points at the user's fonts directory.
     QCOMPARE(options.value(u"fonts-dir"_s).toString(),
              fixtureDir() + u"/fonts"_s);
@@ -115,7 +133,10 @@ void TestCompatController::selectiveImportHonorsFileList()
 
     const QVariantMap options = controller.startupOptions();
     QCOMPARE(options.value(u"volume"_s).toString(), u"80"_s);
-    QVERIFY(!options.contains(u"input-conf"_s));
+    // input.conf was not selected: pinned to our own empty file, not the
+    // user's (mpv would otherwise load it behind our back).
+    QCOMPARE(options.value(u"input-conf"_s).toString(),
+             appData.path() + u"/input.conf"_s);
     QVERIFY(!options.contains(u"scripts"_s));
     QVERIFY(!options.contains(u"fonts-dir"_s));
     // Forced values still apply — the embedding constraints are not optional.
@@ -131,7 +152,7 @@ void TestCompatController::selectiveImportHonorsFileList()
              fixtureDir() + u"/input.conf"_s);
 }
 
-void TestCompatController::selectiveImportOfNothingIsEmpty()
+void TestCompatController::selectiveImportOfNothingPinsOwnInputConf()
 {
     QTemporaryDir appData;
     QVERIFY(appData.isValid());
@@ -140,7 +161,10 @@ void TestCompatController::selectiveImportOfNothingIsEmpty()
                                 appData.path(), fixtureDir());
     controller.startupOptions();
     controller.chooseSelectiveImport(QStringList{});
-    QCOMPARE(controller.startupOptions(), QVariantMap{});
+    const QVariantMap options = controller.startupOptions();
+    QCOMPARE(options.value(u"input-conf"_s).toString(),
+             appData.path() + u"/input.conf"_s);
+    QCOMPARE(options.size(), 1);
     QVERIFY(!controller.firstRunPromptNeeded());
 }
 
@@ -163,7 +187,7 @@ void TestCompatController::standaloneUsesOwnInputConf()
     QCOMPARE(options.size(), 1);
 }
 
-void TestCompatController::skipSuppressesPrompt()
+void TestCompatController::skipPinsOwnInputConfAndSuppressesPrompt()
 {
     QTemporaryDir appData;
     QVERIFY(appData.isValid());
@@ -175,7 +199,11 @@ void TestCompatController::skipSuppressesPrompt()
 
     QVERIFY(!controller.firstRunPromptNeeded());
     QVERIFY(controller.configDetected());
-    QCOMPARE(controller.startupOptions(), QVariantMap{});
+    // Skip still blocks mpv's silent fallback to the user's input.conf.
+    const QVariantMap options = controller.startupOptions();
+    QCOMPARE(options.value(u"input-conf"_s).toString(),
+             appData.path() + u"/input.conf"_s);
+    QCOMPARE(options.size(), 1);
 }
 
 void TestCompatController::decisionPersistsAcrossInstances()
@@ -192,7 +220,7 @@ void TestCompatController::decisionPersistsAcrossInstances()
     }
     CompatController controller(settingsFile, appData.path(), fixtureDir());
     const QVariantMap options = controller.startupOptions();
-    QVERIFY(!options.isEmpty());
+    QVERIFY(options.size() > 1);
     QVERIFY(!controller.firstRunPromptNeeded());
     QCOMPARE(options.value(u"vo"_s).toString(), u"libmpv"_s);
 }

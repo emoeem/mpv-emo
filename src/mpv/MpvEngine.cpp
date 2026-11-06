@@ -82,6 +82,12 @@ bool MpvEngine::initialize(const QVariantMap &options)
     mpv_set_option_string(m_mpv, "vo", "libmpv");       // render API
     mpv_set_option_string(m_mpv, "hwdec", "auto-safe"); // safe hardware decode
     mpv_set_option_string(m_mpv, "keep-open", "yes");   // stay at EOF, don't close
+    // Scripts enter ONLY through the explicit "scripts" option set by the
+    // compat controller (user consent). mpv's load-scripts defaults to yes
+    // and would auto-load everything in the config dir's scripts/
+    // subdirectory (player/scripting.c mp_load_scripts) even under libmpv —
+    // that must never happen without an explicit import decision.
+    mpv_set_option_string(m_mpv, "load-scripts", "no");
 
     for (auto it = options.constBegin(); it != options.constEnd(); ++it)
         mpv_set_option_string(m_mpv, it.key().toUtf8().constData(),

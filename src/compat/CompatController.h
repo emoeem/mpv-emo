@@ -25,6 +25,13 @@
 //   - EmoPlay never writes into the user's mpv directory (config-dir points
 //     there only for reading; all write paths are redirected to app data).
 //   - Any decision is user-initiated; nothing is imported without consent.
+//     mpv would otherwise silently load the user's input.conf (mpv loads it
+//     in mpv_initialize regardless of --config) and auto-load every script
+//     in the config dir's scripts/ subdirectory (load-scripts defaults to
+//     yes even under libmpv). Therefore load-scripts is forced off in
+//     MpvEngine and input-conf ALWAYS points somewhere we control: at the
+//     user's original file only when it was explicitly imported, otherwise
+//     at EmoPlay's own empty input.conf in app data.
 class CompatController : public QObject
 {
     Q_OBJECT
@@ -70,13 +77,21 @@ public:
 
 signals:
     void stateChanged();
+    // Non-fatal setup problems that would otherwise be silent (e.g. the
+    // fallback input.conf could not be created and mpv might fall back to
+    // the user's own input.conf). Logged by main.cpp.
+    void errorOccurred(const QString &message);
 
 private:
     // Options for importing exactly |selected| files (relative paths).
     QVariantMap buildImportOptions(const QStringList &selected) const;
     // Options for the "standalone" choice: deterministic EmoPlay-only config,
-    // no user config-dir, no user scripts.
+    // no user config-dir, no user scripts (input-conf pinned by
+    // startupOptions).
     QVariantMap buildStandaloneOptions() const;
+    // Returns the path of EmoPlay's own empty input.conf, creating it if
+    // needed; emits errorOccurred when creation fails.
+    QString ensureOwnInputConf() const;
     void persistDecision(const QString &decision, const QStringList &selected);
 
     AppSettings m_settings;

@@ -72,14 +72,23 @@ QVariantMap CompatController::startupOptions()
     m_summary = MpvProfileScanner::scan(m_configDir);
 
     const QString decision = m_settings.importDecision();
+    QVariantMap options;
     if (decision == QLatin1String("full"))
-        return buildImportOptions(allRelativePaths(m_summary));
-    if (decision == QLatin1String("selective"))
-        return buildImportOptions(m_settings.selectedFiles());
-    if (decision == QLatin1String("standalone"))
-        return buildStandaloneOptions();
-    // "skip" or undecided: pure EmoPlay defaults.
-    return {};
+        options = buildImportOptions(allRelativePaths(m_summary));
+    else if (decision == QLatin1String("selective"))
+        options = buildImportOptions(m_settings.selectedFiles());
+    else if (decision == QLatin1String("standalone"))
+        options = buildStandaloneOptions();
+    // "skip" or undecided: pure EmoPlay defaults — but see below.
+
+    // mpv loads input.conf inside mpv_initialize regardless of --config,
+    // falling back to the config dir's input.conf when input-conf is unset
+    // or unreadable (input/input.c mp_input_load_config). Whenever the user
+    // did not explicitly import their input.conf, pin it to EmoPlay's own
+    // empty file so nothing is loaded without consent.
+    if (!options.contains(QStringLiteral("input-conf")))
+        options.insert(QStringLiteral("input-conf"), ensureOwnInputConf());
+    return options;
 }
 
 QVariantMap CompatController::buildImportOptions(
@@ -116,16 +125,27 @@ QVariantMap CompatController::buildImportOptions(
                        sourceDir + QStringLiteral("/input.conf"));
     }
 
-    // scripts: explicit comma-separated file list (files, never a directory
-    // overwrite); mpv loads each listed .lua/.js file.
+    // scripts: explicit file list (files, never a directory overwrite). The
+    // --scripts option is a PATH list: ':' on Unix, ';' on Windows (mpv
+    // options.rst "--scripts=file1.lua:file2.lua:..."), NOT the ',' used by
+    // ordinary list options — a comma would make the whole string one
+    // nonexistent path. Paths containing the separator character are
+    // unsupported (documented limitation).
     QStringList scriptPaths;
     for (const ImportFileSummary &file : m_summary.files) {
         if (file.kind == QLatin1String("script")
             && isSelected(file.relativePath))
             scriptPaths.append(sourceDir + QLatin1Char('/') + file.relativePath);
     }
-    if (!scriptPaths.isEmpty())
-        options.insert(QStringLiteral("scripts"), scriptPaths.join(QLatin1Char(',')));
+    if (!scriptPaths.isEmpty()) {
+#if defined(Q_OS_WIN)
+        const QLatin1Char scriptSep(';');
+#else
+        const QLatin1Char scriptSep(':');
+#endif
+        options.insert(QStringLiteral("scripts"),
+                       scriptPaths.join(scriptSep));
+    }
 
     // fonts: point mpv's fonts-dir at the user's fonts/ directory.
     if (m_summary.fontCount > 0) {
@@ -149,18 +169,27 @@ QVariantMap CompatController::buildImportOptions(
 
 QVariantMap CompatController::buildStandaloneOptions() const
 {
-    // Deterministic EmoPlay-only input config: an empty input.conf in our own
-    // app data prevents mpv from auto-loading the user's ~/.config/mpv/
-    // input.conf behind our back.
-    QVariantMap options;
-    const QString inputConf = m_appDataDir + QStringLiteral("/input.conf");
-    if (!QFile::exists(inputConf)) {
-        QFile file(inputConf);
-        if (file.open(QIODevice::WriteOnly))
-            file.close();
+    // Deterministic EmoPlay-only configuration: no user config-dir, no user
+    // scripts; input-conf is pinned by startupOptions().
+    return {};
+}
+
+QString CompatController::ensureOwnInputConf() const
+{
+    const QString path = m_appDataDir + QStringLiteral("/input.conf");
+    if (!QFile::exists(path)) {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly)) {
+            // input-conf pointing at a missing file makes mpv fall back to
+            // the config dir's input.conf — report this instead of failing
+            // silently.
+            emit errorOccurred(
+                QStringLiteral("cannot create %1 (%2): mpv may fall back to "
+                               "loading the user's input.conf")
+                    .arg(path, file.errorString()));
+        }
     }
-    options.insert(QStringLiteral("input-conf"), inputConf);
-    return options;
+    return path;
 }
 
 void CompatController::persistDecision(const QString &decision,
