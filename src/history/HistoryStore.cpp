@@ -101,7 +101,6 @@ void HistoryStore::onFileLoaded()
     if (path.isEmpty())
         return; // no media behind the event; nothing to record
 
-    m_currentPath = path;
     const QString title = m_engine->getProperty(QStringLiteral("media-title")).toString();
     const QVariant duration = m_engine->getProperty(QStringLiteral("duration"));
     recordPlayback(path, title, 0.0, duration.isValid() ? duration.toDouble() : 0.0);
@@ -109,13 +108,23 @@ void HistoryStore::onFileLoaded()
 
 void HistoryStore::onTimerTick()
 {
-    if (!m_engine || m_idle || m_currentPath.isEmpty())
+    if (!m_engine || m_idle)
+        return;
+
+    // Resolve the current file live instead of caching it: when the playlist
+    // advances, mpv's core can already expose the next file's time-pos while
+    // our FILE_LOADED event is still queued, and a cached path would write
+    // the new ~0 position into the previous file's entry (losing its resume
+    // point). Path and time-pos are read back-to-back from the same core
+    // state, and an empty path (loading gap) is a clean no-op.
+    const QString path = m_engine->getProperty(QStringLiteral("path")).toString();
+    if (path.isEmpty())
         return;
 
     const QVariant position = m_engine->getProperty(QStringLiteral("time-pos"));
     if (!position.isValid())
         return; // property unavailable (e.g. between files)
-    updateEntryPosition(m_currentPath, position.toDouble());
+    updateEntryPosition(path, position.toDouble());
 }
 
 void HistoryStore::load()

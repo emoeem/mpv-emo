@@ -68,7 +68,6 @@ private:
     QString m_filePath;
     QVariantList m_entries;
     QTimer m_refreshTimer;
-    QString m_currentPath;
     bool m_idle = true;
 
     static constexpr int kMaxEntries = 50;
