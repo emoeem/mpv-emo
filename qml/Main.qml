@@ -111,6 +111,31 @@ ApplicationWindow {
         Rectangle { x: 14; y: 9; width: 2; height: 7; color: ink }
     }
 
+    // Quality drawers share one combo shape (label/value pairs backed by
+    // the controller's persisted string values).
+    component QualityCombo: ComboBox {
+        textRole: "label"
+        valueRole: "value"
+        Layout.fillWidth: true
+    }
+
+    function selectQualityValue(combo, value) {
+        for (var i = 0; i < combo.count; ++i) {
+            if (combo.valueAt(i) === value) {
+                combo.currentIndex = i
+                return
+            }
+        }
+    }
+
+    function syncQualityControls() {
+        selectQualityValue(contentModeCombo, qualityController.contentMode)
+        selectQualityValue(tierCombo, qualityController.qualityTier)
+        selectQualityValue(scaleCombo, qualityController.scaleOverride)
+        selectQualityValue(debandCombo, qualityController.debandMode)
+        selectQualityValue(toneMappingCombo, qualityController.toneMappingMode)
+    }
+
     MpvItem {
         id: mpvItem
         anchors.fill: parent
@@ -292,6 +317,13 @@ ApplicationWindow {
                                                    : tracksDrawer.open()
                 }
                 IconButton {
+                    // Four-pointed star next to the gear: image quality.
+                    glyph: "\u2726"
+                    ToolTip.text: qsTr("Quality")
+                    onClicked: qualityDrawer.opened ? qualityDrawer.close()
+                                                    : qualityDrawer.open()
+                }
+                IconButton {
                     glyph: "\u266A"
                     opacity: mpvItem.muted ? 0.4 : 1
                     ToolTip.text: qsTr("Mute")
@@ -463,6 +495,200 @@ ApplicationWindow {
             qsTr("All files (*)")
         ]
         onAccepted: mpvItem.loadExternalSubtitle(subtitleDialog.selectedFile)
+    }
+
+    // P5 quality settings drawer. All controls follow the imperative-sync
+    // convention: user changes call qualityController setters, and
+    // controller updates are pulled back via Connections (declarative
+    // bindings would be destroyed by the first user interaction).
+    // Tone-mapping offers only values that work under vo=libmpv (classic
+    // gpu renderer in mpv 0.37): "spline"/"bt.2446a" are gpu-next only.
+    Drawer {
+        id: qualityDrawer
+        edge: Qt.RightEdge
+        width: Math.min(root.width * 0.46, 460)
+        onOpened: root.syncQualityControls()
+        onClosed: compatKeys.forceActiveFocus()
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
+
+        Connections {
+            target: qualityController
+            function onPrefsChanged() { root.syncQualityControls() }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 8
+
+            Label {
+                text: qsTr("Quality")
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+                color: "#e8e8ee"
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: qualityController.autoDowngraded
+                text: qsTr("Auto-downgraded to Low: dropped frames detected")
+                color: "#ffb454"
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+
+            Label {
+                text: qsTr("Content type")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            QualityCombo {
+                id: contentModeCombo
+                model: [
+                    { label: qsTr("Auto (detect)"), value: "auto" },
+                    { label: qsTr("Animation"), value: "anime" },
+                    { label: qsTr("Live action"), value: "live" }
+                ]
+                onActivated: function (index) {
+                    qualityController.setContentMode(contentModeCombo.valueAt(index))
+                }
+            }
+
+            Label {
+                text: qsTr("Quality tier")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            QualityCombo {
+                id: tierCombo
+                model: [
+                    { label: qsTr("Off (mpv defaults)"), value: "off" },
+                    { label: qsTr("Low"), value: "low" },
+                    { label: qsTr("Medium"), value: "medium" },
+                    { label: qsTr("High"), value: "high" }
+                ]
+                onActivated: function (index) {
+                    qualityController.setQualityTier(tierCombo.valueAt(index))
+                }
+            }
+
+            Label {
+                text: qsTr("Scaling algorithm")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            QualityCombo {
+                id: scaleCombo
+                model: [
+                    { label: qsTr("Auto (by tier)"), value: "" },
+                    { label: "ewa_lanczossharp", value: "ewa_lanczossharp" },
+                    { label: "lanczos", value: "lanczos" },
+                    { label: "bilinear", value: "bilinear" }
+                ]
+                onActivated: function (index) {
+                    qualityController.setScaleOverride(scaleCombo.valueAt(index))
+                }
+            }
+
+            Label {
+                text: qsTr("Deband")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            QualityCombo {
+                id: debandCombo
+                model: [
+                    { label: qsTr("Auto"), value: "auto" },
+                    { label: qsTr("On"), value: "yes" },
+                    { label: qsTr("Off"), value: "no" }
+                ]
+                onActivated: function (index) {
+                    qualityController.setDebandMode(debandCombo.valueAt(index))
+                }
+            }
+
+            Label {
+                text: qsTr("HDR tone-mapping")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            QualityCombo {
+                id: toneMappingCombo
+                model: [
+                    { label: qsTr("Auto (by tier)"), value: "auto" },
+                    { label: "BT.2390", value: "bt.2390" },
+                    { label: "Mobius", value: "mobius" },
+                    { label: "Hable", value: "hable" }
+                ]
+                onActivated: function (index) {
+                    qualityController.setToneMappingMode(toneMappingCombo.valueAt(index))
+                }
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("For HDR sources; shaders are not mounted while "
+                           + "HDR tone-mapping is active. spline / bt.2446a "
+                           + "require gpu-next and are unavailable here.")
+                color: "#8a8a96"
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+
+            Label {
+                text: qsTr("Shaders")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qualityController.shadersDir
+                color: "#8a8a96"
+                font.pixelSize: 11
+                elide: Text.ElideMiddle
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ListView {
+                    id: shaderList
+                    anchors.fill: parent
+                    clip: true
+                    model: qualityController.availableShaders
+                    delegate: CheckBox {
+                        id: shaderCheck
+                        width: ListView.view.width
+                        text: modelData
+                        font.pixelSize: 12
+
+                        // Imperative sync: reflect the controller's manual
+                        // list; user toggles push back through the setter.
+                        function syncShader() {
+                            shaderCheck.checked =
+                                qualityController.manualShaders.indexOf(
+                                    qualityController.shadersDir + "/"
+                                    + modelData) >= 0
+                        }
+                        Component.onCompleted: syncShader()
+                        onToggled: qualityController.setShaderMounted(
+                                       modelData, shaderCheck.checked)
+                        Connections {
+                            target: qualityController
+                            function onShadersChanged() { shaderCheck.syncShader() }
+                        }
+                    }
+                    ScrollIndicator.vertical: ScrollIndicator {}
+                }
+
+                Label {
+                    anchors.centerIn: parent
+                    visible: shaderList.count === 0
+                    text: qsTr("No .glsl files found in the shaders directory")
+                    color: "#8a8a96"
+                }
+            }
+        }
     }
 
     // Playlist side drawer; the list itself is the engine's mirrored
