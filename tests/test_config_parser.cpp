@@ -99,7 +99,7 @@ void TestConfigParser::inputConfBasicBinding()
 
     QCOMPARE(bindings.size(), 1);
     QCOMPARE(bindings[0].key, u"Space"_s);
-    QCOMPARE(bindings[0].command, QStringList{u"cycle"_s, u"pause"_s});
+    QCOMPARE(bindings[0].command, (QStringList{u"cycle"_s, u"pause"_s}));
     QCOMPARE(bindings[0].comment, QString());
     QCOMPARE(bindings[0].lineNumber, 1);
 }
@@ -110,7 +110,7 @@ void TestConfigParser::inputConfQuotedArgs()
         MpvConfigParser::parseInputConf(u"a loadfile \"my file.mkv\"\n"_s);
 
     QCOMPARE(bindings.size(), 1);
-    QCOMPARE(bindings[0].command, QStringList{u"loadfile"_s, u"my file.mkv"_s});
+    QCOMPARE(bindings[0].command, (QStringList{u"loadfile"_s, u"my file.mkv"_s}));
 }
 
 void TestConfigParser::inputConfInlineComment()
@@ -146,9 +146,9 @@ void TestConfigParser::tokenizeEdgeCases()
     QVERIFY(MpvConfigParser::tokenizeCommand(QString()).isEmpty());
     QCOMPARE(MpvConfigParser::tokenizeCommand(u"one"_s), QStringList{u"one"_s});
     QCOMPARE(MpvConfigParser::tokenizeCommand(u"  spaced   out  "_s),
-             QStringList{u"spaced"_s, u"out"_s});
+             (QStringList{u"spaced"_s, u"out"_s}));
     QCOMPARE(MpvConfigParser::tokenizeCommand(u"\"quoted arg\" tail"_s),
-             QStringList{u"quoted arg"_s, u"tail"_s});
+             (QStringList{u"quoted arg"_s, u"tail"_s}));
     // Unterminated quote extends to the end of the string.
     QCOMPARE(MpvConfigParser::tokenizeCommand(u"\"open arg"_s), QStringList{u"open arg"_s});
 }
