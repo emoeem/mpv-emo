@@ -10,11 +10,11 @@
 | P1 | libmpv 嵌入 + 渲染上下文 | **in-progress** | Linux CI 构建+冒烟通过；Win/mac 待 CI 矩阵（后续任务） |
 | P2 | 播放器基础 UI（控制栏/快捷键/全屏/打开文件） | **in-progress** | Linux CI 冒烟通过；实机交互待验证 |
 | P3 | 音轨/字幕/播放列表/历史 | **done** | Linux CI 构建+单测+冒烟 success（评审修复后 `6b719ac`）；实机交互验证与播放列表持久化列入后续批次 |
-| P4 | mpv 配置兼容层（扫描/导入/回写） | **in-progress**（实现说明：扫描/导入/向导/脚本与 input.conf 生效已落地并附单测；状态终审待 CI 全绿后由文档管理员确认；GUI 键位编辑器与设置页入口、回写属后续批次） | 待录入 execution-log 批次 5（批次收尾补记）；commits：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
+| P4 | mpv 配置兼容层（扫描/导入/回写） | **done**（扫描/导入/向导/脚本与 input.conf 生效已落地并附单测，批次 5 收尾 CI 全绿终审通过；GUI 键位编辑器与设置页入口、回写属后续批次） | Linux CI 构建 + 单测（ctest 8/8）+ Xvfb QML 冒烟 success（评审修复后 head `a35774a`，run 42296377325）；批次记录见 execution-log 批次 5；T13–T19 commits：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
 | P5 | 高级画质（滤镜/HDR/tone-mapping UI） | pending | — |
 | P6 | 媒体库与文件管理 | pending | — |
 | P7 | 音乐模式（歌词/EQ） | pending | — |
-| P8 | 插件生态（脚本/着色器管理） | pending | — |
+| P8 | 插件生态（脚本/着色器管理；格式目标 = manager.json 兼容，见 nativeization-plan.md §4） | pending | — |
 | P9 | 平台集成（打包/更新/系统集成） | **in-progress** | 打包/发布管线已落地：release.yml 三平台构建（Linux AppImage / Windows zip / macOS dmg）+ tag push 自动发布，v0.1.0-alpha prerelease 已发布（execution-log 批次 4）；**签名/公证未做**（Windows 无 Authenticode、macOS 仅 ad-hoc 签名），更新器与系统集成（文件关联/协议关联等）未做 |
 | P10 | 全面测试与发布 | pending | — |
 
@@ -46,5 +46,5 @@
 
 1. **P3 收尾**：播放列表磁盘持久化（roadmap 原文项，本批次未含）；音轨/字幕/播放列表实机交互验证。
 2. **P1 收尾**：Windows（MSVC + 预编译 libmpv）/ macOS（brew mpv）CI 矩阵。
-3. **P4 兼容层**：`~/.config/mpv` 扫描、导入向导（完整/选择性/独立）、脚本目录管理。
+3. **P4 收尾**：GUI 键位编辑器、设置页导入入口（`compatController.requestWizard`）、配置回写；导入/向导/按键转发的实机交互验证。
 4. **工程质量**：clang-format 固化 + CI 格式检查；QML 交互的集成测试（xvfb + 真实媒体样本）；崩溃日志与 `mpv log-message` 收集。

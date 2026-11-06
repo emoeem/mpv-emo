@@ -95,7 +95,7 @@
 | 脚本/组件 | 现状（做什么） | EmoPlay 落点 | 优先级 | 依赖 |
 |---|---|---|---|---|
 | **evafast.lua** | 长按右键快进 + 点按跳转混合（bilibili 式），`input-ar-delay` 控制阈值 | **保留为脚本**；若原生吸收则归 P9 输入系统（长按手势） | 低 | 输入系统长按语义 |
-| **长尾脚本群**：simple-mpv-webui（浏览器控制）、trakt-scrobble（Trakt 同步）、sponsorblock_minimal、sleep-timer、memo、undoredo、slicing_copy、mpv-cropscreen、mpv-animated、startup-format-logos、system-monitor、thumbfast、stats.lua（中文增强）、sub_export、autosubsync、sub-select、chapter-make-read、episode-preferences、mute-on-specific-subtitle-words.js、strm-loader、autoload 等 | 单点功能清晰、与引擎耦合低，上游活跃 | **保留为脚本**：P4 兼容层扫描/加载 `scripts/`；其中适合第三方的（webui/trakt/sponsorblock）登记进 P8 插件清单示例（`check` 模式） | 低 | P4 兼容层（扫描/导入，解析器已就绪）；P8 清单（§4） |
+| **长尾脚本群**：simple-mpv-webui（浏览器控制）、trakt-scrobble（Trakt 同步）、sponsorblock_minimal、sleep-timer、memo、undoredo、slicing_copy、mpv-cropscreen、mpv-animated、startup-format-logos、system-monitor、thumbfast、stats.lua（中文增强）、sub_export、autosubsync、sub-select、chapter-make-read、episode-preferences、mute-on-specific-subtitle-words.js、strm-loader、autoload 等 | 单点功能清晰、与引擎耦合低，上游活跃 | **保留为脚本**：P4 兼容层扫描/加载 `scripts/`；其中适合第三方的（webui/trakt/sponsorblock）登记进 P8 插件清单示例（`check` 模式） | 低 | P4 兼容层（扫描/导入已落地，见 execution-log 批次 5）；P8 清单（§4） |
 
 ## 3. 明确不映射的项（含理由）
 

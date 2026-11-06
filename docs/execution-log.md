@@ -86,3 +86,46 @@
   - `EmoPlay-0.1.0-alpha-windows-x86_64.zip`（95,421,195 B ≈ 91 MB）
   - `EmoPlay-0.1.0-alpha-macos.dmg`（74,336,763 B ≈ 71 MB，仅 ad-hoc 签名）
 - **风险与待验证**：Windows/macOS 产物未经实体机验证（experimental）；**签名/公证未做**（Windows 无 Authenticode，macOS 无 Developer ID + notarization）；Windows libmpv 固定 zhongfly 滚动 tag、macOS brew mpv 随上游滚动，ABI 漂移需跟踪；AppImage 组装失败时的 tar.gz 降级预案尚未实际触发过
+
+## 2026-11-07 · 批次 5：原生化计划文档 + P4 配置兼容层（批次收尾）
+
+- **任务**：原生化计划文档；T13–T19（P4 兼容层首批：扫描、导入规则、决策持久化、按键转发、CompatController、启动序、首启向导及测试）
+- **产出**：
+  - `docs/nativeization-plan.md`（`c85604a`）：mpv-Emo（只读快照 `70d6eb4`）逐项映射到 EmoPlay 六类落点（P5 画质引擎 / P6 媒体库 / P7 音乐模式 / P8 插件仓库 / P9 平台集成 / 保留为脚本），作为 P5–P8 排期依据；§4 定义 P8 插件清单**格式目标 = manager.json 兼容**（字段语义 + check/replace 双模式 + 「本地定制永不覆盖」原则）
+  - 扫描/导入：`src/compat/MpvProfileScanner.{h,cpp}`（T13，`d815234`）定位 mpv 配置目录并产出 ImportSummary；`src/compat/MpvImportRules.{h,cpp}`（T14，`9df56d0`）强制 `vo=libmpv`/`osc=no`/`terminal=no`、剥离 include/profile/scripts/input-conf/config-dir、写入路径重定向（watch-later/screenshot/shader-cache/icc-cache/demuxer-cache → AppData），其余选项按 mpv 语义通过
+  - 决策持久化：`src/settings/AppSettings.{h,cpp}`（T15，`1c480ed`）`AppDataLocation/settings.json`（QSaveFile 原子写）记录 importDecision / 选择性清单 / ImportSummary 快照 / dontAskAgain
+  - 按键转发：`src/compat/MpvKeyName.{h,cpp}` + `MpvEngine::keyPress`（T16，`85e74c3`）未消费按键 Qt 键名→mpv `keypress`，使 input.conf 在嵌入 UI 生效
+  - 编排与启动：`src/compat/CompatController.{h,cpp}`（T17，`d75b6bb`）决策→选项组装；`src/main.cpp` 启动序 settings→应用→initialize→向导（T18，`6cfb1c9`）；`qml/ImportWizard.qml` 首启向导（T19，`9848ceb`）完整/选择性/独立 + 不再询问
+  - 设计文档：architecture.md「配置兼容层（P4）」章节（`6dd35d4`；评审后 `48087c4` 同步）
+  - 测试：新增 test_compat_scanner / test_import_rules / test_app_settings / test_mpv_key_name / test_compat_controller，扩展 test_mpv_engine（load-scripts 强制 no 等）；`tests/fixtures/`
+- **CI 结论**：**success**（最终 head `a35774a`，run 42296377325，1m16s，Ubuntu 24.04 构建 + ctest 8/8 + Xvfb QML 冒烟；`env -u GH_TOKEN gh run list` / `gh run view --log-failed` 实查）。批次期间为无本地编译下的 CI 修复链（失败 run 逐轮实查）：
+  1. `d815234`/`9df56d0`/`1c480ed`：test_compat_scanner、test_import_rules Subprocess aborted（`qt.qpa.xcb: could not connect to display`，QTEST_MAIN 需 GUI 平台）→ `7cb8827` 纯逻辑测试改 QTEST_GUILESS_MAIN；`1c480ed` 另有 test_app_settings.cpp 编译错（QCOMPARE 被 braced-init 逗号拆成 3 参数、`file` 变量被 QString 遮蔽）
+  2. `85e74c3`→`7cb8827` 五连败：QT_NO_CAST_FROM_ASCII 下 MpvKeyName.cpp `QString(const char*)` is private → `afba3e7`；test_app_settings 宏/遮蔽错误 → `449f46e`；随后 ctest 期望失败 → `59cc462` 修正两处期望（profiles.conf fixture 计数 5、标点键规范形 `shift+.`）
+  3. ctest 8/8 全过后 QML 冒烟 "QQmlApplicationEngine failed to load component"（ImportWizard 相邻字符串字面量在 JS 是语法错误，整个类型不可用）→ `182cc2c` 修复，run 42290232856 success
+  4. 评审修复期 4 连败：`ensureOwnInputConf() const` 内 emit `errorOccurred`（discards qualifiers，CompatController.cpp:186）→ `a35774a` 改非 const，最终 run 42296377325 success
+- **涉及 commit**（`git log --oneline` 实查，`c85604a`…`a35774a` 共 19 条）：
+  - `c85604a` docs: add nativeization plan mapping mpv-Emo scripts to EmoPlay phases
+  - `d815234` feat(compat): add MpvProfileScanner for mpv config discovery（T13）
+  - `9df56d0` feat(compat): add import rules with forced embedding options（T14）
+  - `1c480ed` feat(settings): persist mpv import decision to settings.json（T15）
+  - `85e74c3` feat(compat): forward unhandled keys to mpv input layer（T16）
+  - `d75b6bb` feat(compat): add CompatController for import decision and option assembly（T17）
+  - `6cfb1c9` feat(app): wire compat startup sequence in main.cpp（T18）
+  - `9848ceb` feat(ui): add first-run mpv config import wizard（T19）
+  - `7cb8827` fix(compat): use QTEST_GUILESS_MAIN for pure-logic tests（CI 修复）
+  - `afba3e7` fix(compat): build key names without ASCII casts under QT_NO_CAST_FROM_ASCII（CI 修复）
+  - `449f46e` fix(compat): repair test macro commas and shadowed variable（CI 修复）
+  - `59cc462` fix(compat): correct two test expectations（CI 修复）
+  - `6dd35d4` docs(arch): record P4 compat layer design and module table
+  - `182cc2c` fix(ui): replace adjacent string literals in QML bindings（CI 修复）
+  - `b98d7bb` fix(compat): make script and input.conf loading exact and consent-driven（评审修复）
+  - `e24f143` fix(compat): match mpv's Unix config dir lookup order（评审修复）
+  - `66d1c3b` fix(compat): redirect demuxer-cache-dir writes to app data（评审修复）
+  - `48087c4` docs(arch): sync compat docs with review fixes
+  - `a35774a` fix(compat): make ensureOwnInputConf non-const（评审修复期编译修复）
+- **评审发现的问题与处置**（4 项，均对 mpv v0.37.0 源码核实后处置）：
+  1. **scripts 分隔符错误 + libmpv 无同意自动加载用户配置**（`b98d7bb`）：`--scripts` 是 OPT_PATHLIST（Unix `:` / Windows `;`，options.rst `--scripts=file1.lua:file2.lua:...`），此前以 `,` 连接使整串成为单个不存在的路径、显式脚本导入静默失效（完整导入模式下被下述自动加载 bug 掩盖）；且 load-scripts 默认 yes 会自动加载 config 目录 `scripts/` 下全部脚本（player/scripting.c `mp_load_scripts`），input.conf 在 `mpv_initialize` 内无条件加载、input-conf 打不开时回退 config 目录（player/main.c，不受 `config=no` 门控）。处置：`initialize` 强制 `load-scripts=no`（显式列表仍生效）、按平台分隔符连接；用户未显式导入 input.conf（未决策/skip/未勾选/独立模式）时 `input-conf` 恒定钉到 EmoPlay 自有空 input.conf，创建失败经 `errorOccurred` 上报——杜绝静默回退加载用户文件。
+  2. **Unix config 目录查找顺序不符 mpv 语义**（`e24f143`）：mpv 在 `XDG_CONFIG_HOME` 已设时**独占**使用（osdep/path-unix.c:44-48），不再查 `~/.config/mpv`；legacy `~/.mpv` 仅在主候选不存在时回退（:70-76）。原「home 优先」顺序可能扫描并导入 mpv 自身忽略的目录（如设了 XDG_CONFIG_HOME 又留有旧 ~/.config/mpv）；macOS 同 path-unix.c，Unix 分支覆盖之，Windows 维持 %APPDATA%/mpv。顺序断言翻转并补 legacy 目录用例。
+  3. **demuxer-cache-dir 缺席写路径重定向**（`66d1c3b`）：用户值（如 `~~` 相对路径）+ cache-on-disk 会把缓存写进用户 mpv 目录，违反「绝不写用户目录」原则；其默认值本指向系统缓存目录，仅显式值触发——重定向到 AppData/demuxer_cache，与其余写路径一致。
+  4. **ensureOwnInputConf 误标 const**（`a35774a`）：Qt 信号方法非 const 成员，const 函数内 emit `errorOccurred` 无法编译（discards qualifiers）；该函数本就写文件、可能 emit——去 const。
+- **风险与待验证**：无本地编译，CI 只验证「构建 + 单测（8/8）+ QML 能启动」；真实 `~/.config/mpv` 的导入、向导交互、按键转发覆盖面（Slider 焦点消费方向键等已知边界见 architecture.md）待实机验证；profile 定义与 `profile=` 引用不应用（原生等价物归 P5）；GUI 键位编辑器、设置页入口（`compatController.requestWizard`）、配置回写属后续批次
