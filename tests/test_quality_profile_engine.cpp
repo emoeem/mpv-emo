@@ -286,6 +286,17 @@ void TestQualityProfileEngine::scaleOverrideWinsWhileActive()
     const auto info = makeInfo(1080, 23.976, u"animated"_s);
     const QPE::Result result = QPE::compute(info, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::Medium, u"auto"_s, u"bilinear"_s));
     QCOMPARE(result.options.value(u"scale"_s).toString(), u"bilinear"_s);
+
+    // Corrupted or undocumented override values fall back to the tier pick.
+    const auto bad = makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::Medium, u"auto"_s, u"spline36"_s);
+    QCOMPARE(QPE::compute(info, bad).options.value(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+    const auto garbage = makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::Medium, u"auto"_s, u"garbage"_s);
+    QCOMPARE(QPE::compute(info, garbage).options.value(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+
+    QVERIFY(QPE::isSupportedScale(u"lanczos"_s));
+    QVERIFY(QPE::isSupportedScale(u"ewa_lanczossharp"_s));
+    QVERIFY(!QPE::isSupportedScale(u"spline36"_s)); // not documented for --scale in 0.37
+    QVERIFY(!QPE::isSupportedScale(QString()));
 }
 
 void TestQualityProfileEngine::debandModeOverride()
@@ -302,6 +313,11 @@ void TestQualityProfileEngine::debandModeOverride()
     auto forcedOff = prefs;
     forcedOff.debandMode = u"no"_s;
     QCOMPARE(QPE::compute(info, forcedOff).options.value(u"deband"_s).toBool(), false);
+
+    // Corrupted mode values normalize to "auto" (table decides: on).
+    auto corrupted = prefs;
+    corrupted.debandMode = u"garbage"_s;
+    QCOMPARE(QPE::compute(info, corrupted).options.value(u"deband"_s).toBool(), true);
 
     // "off" tier always clears deband, whatever the override says.
     forcedOff.qualityTier = QPE::QualityTier::Off;

@@ -108,4 +108,11 @@ QString animatedHintFrom(const QString &pathOrTitle);
 // v0.37.0, see file comment). Used to validate the user preference.
 bool isSupportedToneMapping(const QString &value);
 
+// --scale values documented in the mpv v0.37.0 manual (options.rst
+// --scale): bilinear, lanczos, ewa_lanczos, ewa_lanczossharp,
+// ewa_lanczos4sharpest, mitchell, hermite, catmull_rom, oversample,
+// linear. Used to validate the panel's scale override so that corrupted
+// settings.json values are never forwarded to mpv.
+bool isSupportedScale(const QString &value);
+
 } // namespace QualityProfileEngine

@@ -48,6 +48,21 @@ const QStringList &supportedToneMappings()
     return values;
 }
 
+// --scale choices documented in the mpv v0.37.0 manual (options.rst
+// --scale). The manual notes there are more undocumented filters; only the
+// documented set is accepted as a user override.
+const QStringList &supportedScales()
+{
+    static const QStringList values = {
+        QStringLiteral("bilinear"),             QStringLiteral("lanczos"),
+        QStringLiteral("ewa_lanczos"),          QStringLiteral("ewa_lanczossharp"),
+        QStringLiteral("ewa_lanczos4sharpest"), QStringLiteral("mitchell"),
+        QStringLiteral("hermite"),              QStringLiteral("catmull_rom"),
+        QStringLiteral("oversample"),           QStringLiteral("linear"),
+    };
+    return values;
+}
+
 // Anime4K v4 group chains, file names verified against upstream
 // bloc97/Anime4K v4.0.1 GLSL_Instructions.md (the "Fast" variants chosen so
 // lower-end GPUs survive; the engine mounts only files that actually exist
@@ -195,6 +210,11 @@ bool isSupportedToneMapping(const QString &value)
     return supportedToneMappings().contains(value);
 }
 
+bool isSupportedScale(const QString &value)
+{
+    return supportedScales().contains(value);
+}
+
 bool isHdrVideoParams(const QVariantMap &videoParams)
 {
     // mpv v0.37 property values (input.rst video-params/*): "primaries"
@@ -255,17 +275,20 @@ Result compute(const MediaInfo &info, const UserPrefs &prefs)
         shaders = resolveShaderGroup(group, info.availableShaders);
     }
 
-    // Scale: low tier stays at the mpv default, medium/high sharpen;
-    // an explicit user override wins whenever the engine is active.
+    // Scale: low tier stays at the mpv default, medium/high sharpen; an
+    // explicit user override wins whenever it names a documented --scale
+    // value (corrupted settings.json values fall back to the tier pick).
     QString scale = prefs.qualityTier == QualityTier::Low
                         ? kDefaultScale.toString()
                         : kQualityScale.toString();
-    if (!prefs.scaleOverride.isEmpty())
+    if (!prefs.scaleOverride.isEmpty() && isSupportedScale(prefs.scaleOverride))
         scale = prefs.scaleOverride;
 
     result.options.insert(QStringLiteral("scale"), scale);
-    // Debanding is cheap and always useful while the engine is active
-    // (mpv's own default is "no"); the panel can force it on/off.
+    // Deband: the mode is normalized first — "yes" forces it on, "no"
+    // forces it off, and any other value (corrupted settings.json values
+    // included) means "auto", where the table turns deband on for every
+    // active tier (mpv's own default is "no").
     result.options.insert(QStringLiteral("deband"),
                           prefs.debandMode != QLatin1String("no"));
 
