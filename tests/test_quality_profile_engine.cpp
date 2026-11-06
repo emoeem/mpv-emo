@@ -114,13 +114,14 @@ void TestQualityProfileEngine::animeHighFhdMountsGroupA()
 
 void TestQualityProfileEngine::animeHighSdMountsHeavierGroup()
 {
-    // SD sources get the double-pass A+A chain (extra Restore_CNN_S +
-    // Upscale_CNN_x2_S pass per upstream CTRL+4).
+    // SD sources get the double-pass A+A chain: upstream CTRL+4 mounts the
+    // second Restore_CNN_S right after the first upscale (restore on the
+    // upscaled texture, before the downscale preparation).
     const auto info = makeInfo(720, 23.976, u"animated"_s, false, fullAnime4kSet());
     const QPE::Result result = QPE::compute(info, makePrefs(QPE::ContentMode::Auto, QPE::QualityTier::High));
     QCOMPARE(result.shaders.size(), 7);
     QCOMPARE(result.shaders.at(1), u"Anime4K/Anime4K_Restore_CNN_M.glsl"_s);
-    QCOMPARE(result.shaders.at(5), u"Anime4K/Anime4K_Restore_CNN_S.glsl"_s);
+    QCOMPARE(result.shaders.at(3), u"Anime4K/Anime4K_Restore_CNN_S.glsl"_s);
 }
 
 void TestQualityProfileEngine::animeHighUhdMountsLightestGroup()

@@ -63,14 +63,19 @@ const QStringList &supportedScales()
     return values;
 }
 
-// Anime4K v4 group chains, file names verified against upstream
-// bloc97/Anime4K v4.0.1 GLSL_Instructions.md (the "Fast" variants chosen so
-// lower-end GPUs survive; the engine mounts only files that actually exist
-// in the user's shaders directory, so partial installs degrade gracefully).
+// Anime4K v4 group chains, file names and order verified against upstream
+// bloc97/Anime4K md/Template/GLSL_Mac_Linux_Low-end/input.conf (the "Fast"
+// variants chosen so lower-end GPUs survive; verified 2026-11-07 against
+// the upstream repository — the v4.0.1 GLSL_Instructions.md carried an
+// older A+A ordering and upstream has since replaced it with the template
+// files). The engine mounts only files that actually exist in the user's
+// shaders directory, so partial installs degrade gracefully.
 //   Mode A   = Clamp_Highlights -> Restore_CNN_M -> Upscale_CNN_x2_M ->
 //              AutoDownscalePre_x2 -> AutoDownscalePre_x4 -> Upscale_CNN_x2_S
-//   Mode A+A = Mode A followed by a second Restore_CNN_S -> Upscale_CNN_x2_S
-//              pass (upstream CTRL+4 "Mode A+A (Fast)")
+//   Mode A+A = Clamp_Highlights -> Restore_CNN_M -> Upscale_CNN_x2_M ->
+//              Restore_CNN_S -> AutoDownscalePre_x2 -> AutoDownscalePre_x4
+//              -> Upscale_CNN_x2_S (second restore pass runs on the
+//              upscaled texture, before the downscale preparation)
 //   Mode C   = Clamp_Highlights -> Upscale_Denoise_CNN_x2_M ->
 //              AutoDownscalePre_x2 -> AutoDownscalePre_x4 -> Upscale_CNN_x2_S
 const QStringList &anime4kGroupA()
@@ -92,9 +97,9 @@ const QStringList &anime4kGroupAPlusA()
         QStringLiteral("Anime4K_Clamp_Highlights.glsl"),
         QStringLiteral("Anime4K_Restore_CNN_M.glsl"),
         QStringLiteral("Anime4K_Upscale_CNN_x2_M.glsl"),
+        QStringLiteral("Anime4K_Restore_CNN_S.glsl"),
         QStringLiteral("Anime4K_AutoDownscalePre_x2.glsl"),
         QStringLiteral("Anime4K_AutoDownscalePre_x4.glsl"),
-        QStringLiteral("Anime4K_Restore_CNN_S.glsl"),
         QStringLiteral("Anime4K_Upscale_CNN_x2_S.glsl"),
     };
     return group;
