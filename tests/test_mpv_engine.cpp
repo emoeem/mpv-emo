@@ -59,6 +59,14 @@ void TestMpvEngine::propertyRoundTrip()
 
     engine.setProperty(u"speed"_s, 1.5);
     QCOMPARE(engine.getProperty(u"speed"_s).toDouble(), 1.5);
+
+    // String-valued property sets go through the MPV_FORMAT_STRING path,
+    // which expects the address of a char* (regression: passing the char*
+    // itself crashed inside mpv when the quality engine applied options).
+    engine.setProperty(u"tone-mapping"_s, u"bt.2390"_s);
+    QCOMPARE(engine.getProperty(u"tone-mapping"_s).toString(), u"bt.2390"_s);
+    engine.setProperty(u"scale"_s, u"ewa_lanczossharp"_s);
+    QCOMPARE(engine.getProperty(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
 }
 
 void TestMpvEngine::observedPropertySignals()

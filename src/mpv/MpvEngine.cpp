@@ -262,9 +262,14 @@ void MpvEngine::setProperty(const QString &name, const QVariant &value)
         break;
     }
     default: {
+        // MPV_FORMAT_STRING on set wants the ADDRESS of a char* (see
+        // mpv_set_property_string: mpv_set_property(..., &data)); passing
+        // the char* itself makes mpv read the first string bytes as a
+        // pointer and crash.
         QByteArray bytes = value.toString().toUtf8();
+        char *string = bytes.data();
         err = mpv_set_property(m_mpv, name.toUtf8().constData(), MPV_FORMAT_STRING,
-                               bytes.data());
+                               &string);
         break;
     }
     }
