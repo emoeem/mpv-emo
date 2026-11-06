@@ -41,7 +41,10 @@ target_compile_definitions(emo_core PRIVATE QT_NO_CAST_FROM_ASCII)
 qt_add_executable(emoplay src/main.cpp)
 # The alias of each file is its path relative to the source tree, so
 # PREFIX "/" puts qml/Main.qml at qrc:/qml/Main.qml (see main.cpp).
-qt_add_resources(emoplay "qml" PREFIX "/" FILES qml/Main.qml)
+qt_add_resources(emoplay "qml" PREFIX "/" FILES
+    qml/Main.qml
+    qml/ImportWizard.qml
+)
 target_link_libraries(emoplay PRIVATE emo_core Qt6::QuickControls2)
 target_compile_definitions(emoplay PRIVATE
     QT_NO_CAST_FROM_ASCII

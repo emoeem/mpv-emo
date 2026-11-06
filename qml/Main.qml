@@ -576,4 +576,22 @@ ApplicationWindow {
         sequence: "Esc"
         onActivated: if (root.isFullscreen) root.showNormal()
     }
+
+    // P4 compat: first-run import wizard (opens when a user mpv config was
+    // detected and no decision is recorded yet), also reachable via
+    // compatController.requestWizard() from a settings page later.
+    ImportWizard {
+        id: importWizard
+    }
+    Component.onCompleted: {
+        if (compatController.firstRunPromptNeeded)
+            importWizard.open()
+    }
+    Connections {
+        target: compatController
+        function onStateChanged() {
+            if (compatController.wizardRequested && !importWizard.opened)
+                importWizard.open()
+        }
+    }
 }
