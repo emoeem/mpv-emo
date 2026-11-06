@@ -7,6 +7,11 @@
 #include <QOpenGLFramebufferObject>
 #include <QQuickWindow>
 
+// mpv render API: client.h (via MpvEngine.h) only declares the client API;
+// the render context and its OpenGL params live in these two headers.
+#include <mpv/render.h>
+#include <mpv/render_gl.h>
+
 namespace {
 
 // Invoked by libmpv on its render thread whenever a new frame is available.
