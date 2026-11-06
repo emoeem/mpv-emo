@@ -25,3 +25,17 @@
   - `.github/workflows/ci.yml`：Ubuntu 24.04 构建 + ctest + Xvfb/llvmpipe QML 启动冒烟
 - **参考**：mpv-examples/libmpv/qml（公开 API 范式）、Haruna（QML 同步模式）、mpv 手册（config/input.conf 语法）
 - **风险与待验证**：无本地编译，全部依赖 CI 反馈；QML 交互正确性 CI 只能验「能启动」，实机行为待用户验证；Windows/macOS 矩阵为下一批次
+
+## 2026-11-07 · 批次 3：P3 音轨/字幕/播放列表/历史
+
+- **任务**：T9–T12
+- **产出**：
+  - 音轨/字幕：`MpvItem` 新增 selectAudioTrack/selectSubtitleTrack（set aid/sid，id 或 "no"）与 loadExternalSubtitle（sub-add <path> select）；`MpvEngine::toMediaPath` 共享 file://→路径转换；Main.qml 右侧抽屉列出音轨/字幕（选中项高亮）、外挂字幕 FileDialog、T/S 快捷键
+  - 播放列表：`MpvEngine` observe "playlist"(NODE)→playlistChanged 信号，`MpvItem` 镜像 Q_PROPERTY；UI 抽屉显示条目（playing 标记）、点击跳转（playlist-play-index）、多选加入（loadfile append-play）、prev/next（playlist-next/prev，</> 快捷键）、清空（playlist-clear）
+  - 播放历史：`src/history/HistoryStore.{h,cpp}`——fileLoaded 记录 path/title/duration、5 秒 QTimer 从 time-pos 刷新 position、按 path 去重置顶、上限 50、`AppDataLocation/history.json`（QSaveFile 原子写）；main.cpp 以 context property `historyStore` 暴露；Main.qml idle 界面最近播放列表，点击 loadFile
+  - 测试：`tests/test_history_store.cpp`（持久化回读、去重置顶+50 条上限、position 刷新不重排、损坏文件恢复、空 path/无媒体守卫），QStandardPaths::setTestModeEnabled + 注入文件路径，offscreen 可跑
+- **决策**：
+  - 播放历史为被动 QObject 服务，路径注入便于测试；每次变更原子落盘（≤50 条小文件）
+  - aid/sid 一律以字符串下发（"2"/"no"），规避 mpv choice 属性的数值格式边界
+  - 播放列表暂不落盘（mpv 会话内）；roadmap P3 原文的「持久化」移入 P3 收尾
+- **风险与待验证**：同样无本地编译，CI 只验证「构建+单测+能启动」；抽屉/字幕/列表的实机交互待用户验证；test_history_store 仅覆盖无媒体场景，真实 loadfile 路径需集成测试（后续批次）

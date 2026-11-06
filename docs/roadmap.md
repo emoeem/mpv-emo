@@ -9,7 +9,7 @@
 | P0 | 选型、架构文档、仓库与 CI 骨架 | **done** | docs/*, GitHub Actions 绿 |
 | P1 | libmpv 嵌入 + 渲染上下文 | **in-progress** | Linux CI 构建+冒烟通过；Win/mac 待 CI 矩阵（后续任务） |
 | P2 | 播放器基础 UI（控制栏/快捷键/全屏/打开文件） | **in-progress** | Linux CI 冒烟通过；实机交互待验证 |
-| P3 | 音轨/字幕/播放列表/历史 | pending | — |
+| P3 | 音轨/字幕/播放列表/历史 | **in-progress** | Linux CI 构建+单测通过（实机交互待验证） |
 | P4 | mpv 配置兼容层（扫描/导入/回写） | pending（解析器已就绪+单测） | — |
 | P5 | 高级画质（滤镜/HDR/tone-mapping UI） | pending | — |
 | P6 | 媒体库与文件管理 | pending | — |
@@ -30,10 +30,14 @@
 | T6 | MpvConfigParser + 单元测试 | done | CI 验证中 |
 | T7 | Engine 冒烟单测（headless mpv init / 属性 / 信号） | done | CI 验证中 |
 | T8 | GitHub Actions（构建+单测+Xvfb QML 冒烟） | done | CI 验证中 |
+| T9 | 音轨/字幕抽屉（track-list UI、外挂字幕 sub-add） | done | CI 验证中 |
+| T10 | 播放列表（observe playlist、侧栏 UI、append/prev/next/跳转/清空） | done | CI 验证中 |
+| T11 | HistoryStore（JSON 持久化、5s position 刷新、idle 界面最近播放） | done | CI 验证中 |
+| T12 | HistoryStore 单测（持久化/去重/上限/损坏恢复） | done | CI 验证中 |
 
 ## 后续批次（按优先级）
 
-1. **P3 播放功能补全**：track-list UI（音轨/字幕切换）、外部字幕加载、播放列表（侧栏+持久化）、最近播放历史。
+1. **P3 收尾**：播放列表磁盘持久化（roadmap 原文项，本批次未含）；音轨/字幕/播放列表实机交互验证。
 2. **P1 收尾**：Windows（MSVC + 预编译 libmpv）/ macOS（brew mpv）CI 矩阵。
 3. **P4 兼容层**：`~/.config/mpv` 扫描、导入向导（完整/选择性/独立）、脚本目录管理。
 4. **工程质量**：clang-format 固化 + CI 格式检查；QML 交互的集成测试（xvfb + 真实媒体样本）；崩溃日志与 `mpv log-message` 收集。
