@@ -9,3 +9,11 @@ add_test(NAME test_mpv_engine COMMAND test_mpv_engine)
 set_tests_properties(test_mpv_engine PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120)
+
+add_executable(test_history_store test_history_store.cpp)
+target_link_libraries(test_history_store PRIVATE emo_core Qt6::Test)
+# HistoryStore is pure Qt logic (plus an idle libmpv core); runs headless.
+add_test(NAME test_history_store COMMAND test_history_store)
+set_tests_properties(test_history_store PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 60)
