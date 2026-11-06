@@ -3,6 +3,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
 #include <QtQml/QtQml>
@@ -11,6 +12,7 @@
 #include "history/HistoryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
+#include "quality/QualityController.h"
 
 int main(int argc, char *argv[])
 {
@@ -60,12 +62,43 @@ int main(int argc, char *argv[])
     HistoryStore historyStore(&mpvEngine, HistoryStore::defaultFilePath(),
                               &mpvEngine);
 
+    // P5 quality engine: shader sources come from the imported user config
+    // directory when that config was actually imported (consent-driven,
+    // read-only); otherwise from EmoPlay's own app-data shaders directory.
+    const QString importDecision =
+        compatController.settings().importDecision();
+    QString qualityShadersDir;
+    if ((importDecision == QLatin1String("full")
+         || importDecision == QLatin1String("selective"))
+        && !compatController.sourceDir().isEmpty()) {
+        qualityShadersDir =
+            compatController.sourceDir() + QStringLiteral("/shaders");
+    } else {
+        qualityShadersDir =
+            QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+            + QStringLiteral("/shaders");
+    }
+
+    // Declared after the engine (same destruction contract as above). The
+    // persisted preferences take effect through startup() (manual shader
+    // list) and on each file-loaded event (profile decision table).
+    QualityController qualityController(&mpvEngine,
+                                        &compatController.settings(),
+                                        qualityShadersDir, &mpvEngine);
+    QObject::connect(&qualityController, &QualityController::errorOccurred,
+                     [](const QString &message) {
+                         qCritical("quality: %s", qPrintable(message));
+                     });
+    qualityController.startup();
+
     QQmlApplicationEngine view;
     view.rootContext()->setContextProperty(QStringLiteral("mpvEngine"), &mpvEngine);
     view.rootContext()->setContextProperty(QStringLiteral("historyStore"),
                                            &historyStore);
     view.rootContext()->setContextProperty(QStringLiteral("compatController"),
                                            &compatController);
+    view.rootContext()->setContextProperty(QStringLiteral("qualityController"),
+                                           &qualityController);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

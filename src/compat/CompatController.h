@@ -65,6 +65,9 @@ public:
     bool wizardRequested() const { return m_wizardRequested; }
     QString sourceDir() const { return m_summary.sourceDir; }
     QVariantList importFiles() const;
+    // Shared settings instance: other services (P5 quality controller)
+    // persist their preferences into the same settings.json document.
+    AppSettings &settings() { return m_settings; }
 
     // Wizard outcomes. Each persists the decision immediately and clears
     // wizardRequested. Imported engine options apply on the next launch.

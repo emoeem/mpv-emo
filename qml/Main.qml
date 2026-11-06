@@ -351,6 +351,12 @@ ApplicationWindow {
                 seekSlider.value = 0
             }
         }
+        // P5 auto-downgrade input: MpvItem samples the drop counter every
+        // 2s; the quality controller demotes the active tier when the rate
+        // explodes (the panel shows the hint, no dialog).
+        function onDroppedFrameRateChanged(rate) {
+            qualityController.notifyDropFrameRate(rate)
+        }
     }
 
     Connections {
