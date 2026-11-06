@@ -127,6 +127,15 @@ void MpvEngine::observeDefaults()
     mpv_observe_property(m_mpv, 0, "track-list", MPV_FORMAT_NODE);
     mpv_observe_property(m_mpv, 0, "playlist", MPV_FORMAT_NODE);
     mpv_observe_property(m_mpv, 0, "idle-active", MPV_FORMAT_FLAG);
+    // P5 quality engine inputs. Property names verified against mpv v0.37.0
+    // (DOCS/man/input.rst): video-params (NODE map), container-fps (DOUBLE),
+    // frame-drop-count (int64 counter, observed as NODE), current-vo and
+    // video-format (STRING).
+    mpv_observe_property(m_mpv, 0, "video-params", MPV_FORMAT_NODE);
+    mpv_observe_property(m_mpv, 0, "container-fps", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "frame-drop-count", MPV_FORMAT_NODE);
+    mpv_observe_property(m_mpv, 0, "current-vo", MPV_FORMAT_STRING);
+    mpv_observe_property(m_mpv, 0, "video-format", MPV_FORMAT_STRING);
 }
 
 void MpvEngine::onWakeup(void *ctx)
@@ -168,6 +177,23 @@ void MpvEngine::handleEvents()
                     nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
             else if (qstrcmp(prop->name, "idle-active") == 0 && prop->format == MPV_FORMAT_FLAG)
                 emit idleActiveChanged(*static_cast<int *>(prop->data) != 0);
+            else if (qstrcmp(prop->name, "video-params") == 0
+                     && prop->format == MPV_FORMAT_NODE)
+                emit videoParamsChanged(
+                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toMap());
+            else if (qstrcmp(prop->name, "container-fps") == 0
+                     && prop->format == MPV_FORMAT_DOUBLE)
+                emit containerFpsChanged(*static_cast<double *>(prop->data));
+            else if (qstrcmp(prop->name, "frame-drop-count") == 0
+                     && prop->format == MPV_FORMAT_NODE)
+                emit frameDropCountChanged(
+                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toLongLong());
+            else if (qstrcmp(prop->name, "current-vo") == 0
+                     && prop->format == MPV_FORMAT_STRING)
+                emit currentVoChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
+            else if (qstrcmp(prop->name, "video-format") == 0
+                     && prop->format == MPV_FORMAT_STRING)
+                emit videoFormatChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
             break;
         }
         case MPV_EVENT_FILE_LOADED:

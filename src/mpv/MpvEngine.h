@@ -83,6 +83,16 @@ signals:
     // reason follows mpv_event_end_file.reason (0 = EOF, 2 = quit, 3 = error).
     void endFile(int reason);
 
+    // P5 quality engine inputs (observed NODE/DOUBLE/STRING properties).
+    // video-params as a QVariantMap (w/h/primaries/gamma/...); empty map
+    // when the values are unavailable. frame-drop-count is observed as
+    // MPV_FORMAT_NODE because the counter is an int64 (mpv input.rst).
+    void videoParamsChanged(const QVariantMap &params);
+    void containerFpsChanged(double fps);
+    void frameDropCountChanged(qlonglong count);
+    void currentVoChanged(const QString &vo);
+    void videoFormatChanged(const QString &format);
+
 private slots:
     // Entry point for the wakeup callback; see onWakeup.
     void handleEvents();
