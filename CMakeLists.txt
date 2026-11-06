@@ -15,19 +15,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
 
-if(MSVC)
-    # Qt 6.4 maps QT_MAKE_CHECKED_ARRAY_ITERATOR to
-    # stdext::make_checked_array_iterator, but qvarlengtharray.h never
-    # includes <iterator>; current MSVC STL versions no longer pull it in
-    # transitively, so compilation dies with C3861/C2065 ('stdext' not
-    # found) in qvarlengtharray.h. Qt 6.5.3 fixed this by adding the
-    # include there (6.6.3 dropped the stdext usage for _MSC_VER >= 1938);
-    # force-including <iterator> keeps Qt 6.4.3 buildable unmodified.
-    # Must run before any target is created: add_compile_options() only
-    # affects targets defined afterwards.
-    add_compile_options(/FIiterator)
-endif()
-
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)

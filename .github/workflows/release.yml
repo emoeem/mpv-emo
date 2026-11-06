@@ -149,6 +149,30 @@ jobs:
           version: '6.4.3'
           arch: 'win64_msvc2019_64'
 
+      # windows-latest 现为 VS 18（MSVC 14.51），其 STL 已删除
+      # stdext::checked_array_iterator 系列；Qt 6.4.3 的
+      # qcompilerdetection.h 无条件把 QT_MAKE_CHECKED/UNCHECKED_ARRAY_ITERATOR
+      # 映射到 stdext 工厂函数（qvarlengtharray.h 因此编译失败 C3861/C2065）。
+      # Qt 6.6 对 _MSC_VER >= 1938 的官方做法就是退化为恒等宏（裸迭代器），
+      # 这里对 CI 安装的 Qt 6.4.3 做同样的两处替换。
+      - name: Patch Qt 6.4.3 for current MSVC STL (stdext removed)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $h = Join-Path $env:QT_ROOT_DIR 'include\QtCore\qcompilerdetection.h'
+          $c = [System.IO.File]::ReadAllText($h)
+          $c = $c.Replace(
+            'stdext::make_unchecked_array_iterator(x) // Since _MSC_VER >= 1800',
+            '(x) // stdext removed from current MSVC STL; identity, as Qt >= 6.6 does for _MSC_VER >= 1938')
+          $c = $c.Replace(
+            'stdext::make_checked_array_iterator(x, size_t(N)) // Since _MSC_VER >= 1500',
+            '(x) // stdext removed from current MSVC STL; identity, as Qt >= 6.6 does for _MSC_VER >= 1938')
+          [System.IO.File]::WriteAllText($h, $c)
+          if (Select-String -Path $h -Pattern 'stdext::' -Quiet) {
+            throw "qcompilerdetection.h patch failed: stdext:: still referenced"
+          }
+          Write-Host "Patched OK: $h"
+
       # CMakeLists.txt 走 pkg_check_modules(mpv)，Windows runner 无 pkg-config，
       # 装 pkgconfiglite（Chocolatey 社区源已核实存在 0.28）。
       - name: Install pkg-config
