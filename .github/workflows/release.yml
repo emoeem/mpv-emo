@@ -1,0 +1,334 @@
+name: Release
+
+# 三平台构建与发布：
+#  - push tag 'v*'    -> 构建 + 发布 prerelease
+#  - workflow_dispatch -> 干跑：只构建并上传 run artifacts，不发布
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # zhongfly/mpv-winbuild 只有按日期滚动的 tag，无语义版本 tag。
+  # 固定到 2026-11-04-ff8ca979b0；资产为 7z（README 里的 "zip" 说法与实际不符）。
+  # 已核实（2026-11-07）：该资产存在且内容为
+  #   include/mpv/{client,render,render_gl,stream_cb}.h + libmpv.dll.a + libmpv-2.dll
+  MPV_WINBUILD_TAG: '2026-11-04-ff8ca979b0'
+  MPV_DEV_ASSET: 'mpv-dev-x86_64-20261104-git-ff8ca979b0.7z'
+
+jobs:
+  linux:
+    name: Linux / Ubuntu 24.04 (AppImage)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 与 ci.yml 完全一致的依赖集
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            qt6-base-dev qt6-declarative-dev \
+            libmpv-dev \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-window qml6-module-qtquick-dialogs \
+            qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
+            qml6-module-qt-labs-platform \
+            xvfb libgl1-mesa-dri
+
+      - name: Compute version string
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            # 干跑（分支 dispatch）：加短 SHA 避免与正式版混淆
+            VER="${VER}-${GITHUB_SHA:0:7}"
+          fi
+          echo "Building version: $VER"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+      - name: Smoke test (QML boot under Xvfb + llvmpipe)
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            env LIBGL_ALWAYS_SOFTWARE=1 timeout 60 ./build/bin/emoplay --smoke-test
+
+      - name: Download linuxdeploy tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/deploy-tools"
+          cd "$RUNNER_TEMP/deploy-tools"
+          curl -fL --retry 3 -o linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fL --retry 3 -o linuxdeploy-plugin-qt-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
+      # 组装 AppImage；连续两轮失败则降级为 tar.gz（含二进制与打包说明），
+      # 避免在 CI 里无限重试。
+      - name: Assemble AppImage (2 attempts, tar.gz fallback)
+        run: |
+          set -uo pipefail
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p dist
+          rm -f ./*.AppImage 2>/dev/null || true
+
+          # linuxdeploy-plugin-qt 需要定位 qmake；Ubuntu 24.04 的 Qt 6.4 提供
+          # /usr/bin/qmake6（或 /usr/lib/qt6/bin/qmake6）。
+          export QMAKE="$(command -v qmake6 || echo /usr/lib/qt6/bin/qmake6)"
+          # QML 全部编译进 qrc，必须显式告诉 plugin-qt 去源码目录扫描 import。
+          export QML_SOURCES_PATHS="$PWD/qml"
+          # runner 无 FUSE：主程序用 CLI 开关，插件 AppImage 靠该环境变量。
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export PATH="$RUNNER_TEMP/deploy-tools:$PATH"
+
+          appimage_ok=""
+          for attempt in 1 2; do
+            echo "::group::linuxdeploy attempt $attempt"
+            rm -rf AppDir
+            "$RUNNER_TEMP/deploy-tools/linuxdeploy-x86_64.AppImage" --appimage-extract-and-run \
+              --appdir "$PWD/AppDir" \
+              -e "$PWD/build/bin/emoplay" \
+              -d "$PWD/packaging/linux/emoplay.desktop" \
+              -i "$PWD/packaging/linux/emoplay.png" \
+              --plugin qt \
+              --output appimage
+            img="$(ls -t ./*.AppImage 2>/dev/null | head -1 || true)"
+            echo "::endgroup::"
+            if [ -n "$img" ]; then
+              appimage_ok=1
+              break
+            fi
+            echo "attempt $attempt produced no AppImage"
+          done
+
+          if [ -n "$appimage_ok" ]; then
+            mv "$img" "dist/EmoPlay-${VER}-linux-x86_64.AppImage"
+            echo "Packaged: dist/EmoPlay-${VER}-linux-x86_64.AppImage"
+          else
+            echo "::warning::AppImage assembly failed twice; falling back to tar.gz"
+            stage="dist/emoplay-${VER}-linux-x86_64"
+            mkdir -p "$stage/bin"
+            cp build/bin/emoplay "$stage/bin/"
+            cp packaging/linux/emoplay.desktop "$stage/"
+            cp packaging/linux/RUNNING.txt "$stage/"
+            tar -czf "dist/EmoPlay-${VER}-linux-x86_64.tar.gz" -C dist "emoplay-${VER}-linux-x86_64"
+            echo "Packaged: dist/EmoPlay-${VER}-linux-x86_64.tar.gz"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows / MSVC (Qt 6.4.3, zhongfly libmpv)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt 6.4.3 (win64_msvc2019_64)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.4.3'
+          arch: 'win64_msvc2019_64'
+
+      # CMakeLists.txt 走 pkg_check_modules(mpv)，Windows runner 无 pkg-config，
+      # 装 pkgconfiglite（Chocolatey 社区源已核实存在 0.28）。
+      - name: Install pkg-config
+        run: choco install pkgconfiglite -y --no-progress
+
+      - name: Compute version string
+        shell: pwsh
+        run: |
+          $ver = $env:GITHUB_REF_NAME -replace '^v', ''
+          if (-not $env:GITHUB_REF.StartsWith('refs/tags/')) {
+            $ver = "$ver-$($env:GITHUB_SHA.Substring(0, 7))"
+          }
+          Write-Host "Building version: $ver"
+          Add-Content -Path $env:GITHUB_ENV -Value "VER=$ver"
+
+      - name: Download libmpv (zhongfly/mpv-winbuild, pinned release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = "https://github.com/zhongfly/mpv-winbuild/releases/download/$env:MPV_WINBUILD_TAG/$env:MPV_DEV_ASSET"
+          Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z
+          # runner 镜像自带 7-Zip（runner-images 文档核实：7zip 26.05）
+          7z x -y -ompv-dev mpv-dev.7z | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z extraction failed" }
+          Get-ChildItem -Recurse mpv-dev | Select-Object -ExpandProperty FullName
+
+      # 归档根目录平铺：include/mpv/*.h、libmpv.dll.a（GNU 导入库，COFF 格式，
+      # MSVC 可直接链接）、libmpv-2.dll。整理成 CMake/pkg-config 可用的 prefix：
+      # 复制为 mpv.lib 以便 MSVC 的 find_library 按 .lib 后缀解析 -lmpv。
+      - name: Stage libmpv SDK prefix
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prefix = Join-Path (Get-Location) 'mpv-sdk'
+          New-Item -ItemType Directory -Force -Path "$prefix/include", "$prefix/lib/pkgconfig", "$prefix/bin" | Out-Null
+          Copy-Item -Recurse -Force mpv-dev/include/mpv "$prefix/include/"
+          Copy-Item -Force mpv-dev/libmpv.dll.a "$prefix/lib/mpv.lib"
+          Copy-Item -Force mpv-dev/libmpv.dll.a "$prefix/lib/libmpv.dll.a"
+          Copy-Item -Force mpv-dev/libmpv-2.dll "$prefix/bin/libmpv-2.dll"
+          $prefixFwd = $prefix -replace '\\', '/'
+          $pc = @"
+          prefix=$prefixFwd
+          libdir=`${prefix}/lib
+          includedir=`${prefix}/include
+
+          Name: mpv
+          Description: libmpv client API (pinned zhongfly/mpv-winbuild build for CI)
+          Version: 0.40.0-unofficial
+          Libs: -L`${libdir} -lmpv
+          Cflags: -I`${includedir}
+          "@
+          Set-Content -Path "$prefix/lib/pkgconfig/mpv.pc" -Value $pc -Encoding ascii
+          Add-Content -Path $env:GITHUB_ENV -Value "MPV_SDK=$prefix"
+          Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG_PATH=$prefix\lib\pkgconfig;$env:PKG_CONFIG_PATH"
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build
+
+      - name: Package (windeployqt + libmpv-2.dll, then zip)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $deploy = "dist/EmoPlay-$env:VER-windows-x86_64"
+          New-Item -ItemType Directory -Force -Path $deploy | Out-Null
+          Copy-Item build/bin/emoplay.exe $deploy/
+          windeployqt --release --qmldir qml "$deploy/emoplay.exe"
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
+          Copy-Item mpv-dev/libmpv-2.dll $deploy/
+          7z a -y -tzip "dist/EmoPlay-$env:VER-windows-x86_64.zip" "$deploy" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "zip packaging failed" }
+          Get-ChildItem dist
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS 14 / arm64 (Qt 6.4.3 universal, brew libmpv)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Homebrew 的 mpv formula 以 -Dlibmpv=true 构建，安装
+      # include/mpv/*.h 与 lib/pkgconfig/mpv.pc（formula 源码已核实）。
+      - name: Install dependencies (brew)
+        run: |
+          set -euo pipefail
+          brew install mpv pkg-config ninja
+
+      - name: Install Qt 6.4.3 (clang_64, universal x86_64/arm64)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.4.3'
+          arch: 'clang_64'
+
+      - name: Compute version string
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            VER="${VER}-${GITHUB_SHA:0:7}"
+          fi
+          echo "Building version: $VER"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          # install-qt-action 会把 Qt 的 pkgconfig 目录放进 PKG_CONFIG_PATH；
+          # 显式补上 Homebrew 的目录，保证 pkg-config 能找到 mpv.pc。
+          export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package (macdeployqt + ad-hoc codesign + dmg)
+        run: |
+          set -euo pipefail
+          mkdir -p dist staging
+          # CMake 的 bundle 目录名跟随 target（emoplay.app），发布时改成
+          # EmoPlay.app 再交给 macdeployqt。
+          cp -R build/bin/emoplay.app staging/EmoPlay.app
+          ln -s /Applications staging/Applications
+          macdeployqt staging/EmoPlay.app -qmldir="$PWD/qml"
+          codesign --force --deep -s - staging/EmoPlay.app
+          # dmg 根目录放 EmoPlay.app 与 /Applications 软链，拖动即装。
+          hdiutil create -volname "EmoPlay" -srcfolder staging \
+            -ov -format UDZO "dist/EmoPlay-${VER}-macos.dmg"
+          rm -rf staging
+          ls -la dist
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    # 干跑（workflow_dispatch）到此为止：只有 tag push 才发布。
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Collect platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Show files to publish
+        run: ls -la dist
+
+      - name: Create prerelease with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            > **验证范围说明**
+            >
+            > - **Linux**：在 GitHub Actions 内完成编译、单元测试与 Xvfb QML 冒烟测试。
+            > - **Windows / macOS**：为 CI 自动构建产物，未在实体机器上验证，属 experimental。
+            > - **macOS** 包未做代码签名（仅 ad-hoc），首次打开会触发 Gatekeeper 提示：
+            >   右键 App → 「打开」，或执行 `xattr -dr com.apple.quarantine /Applications/EmoPlay.app`。
+            > - 若 Linux 资产为 tar.gz 而非 AppImage，说明 AppImage 组装在 CI 中连续两轮失败，
+            >   已按预案降级；安装说明见压缩包内 RUNNING.txt。

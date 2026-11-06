@@ -42,6 +42,22 @@ target_compile_definitions(emoplay PRIVATE
     QT_NO_CAST_FROM_ASCII
     EMOPLAY_VERSION="${PROJECT_VERSION}")
 
+# Packaging prerequisites for the release pipeline. Qt 6.4's
+# qt_add_executable() does not set these automatically (that default only
+# arrived in Qt 6.7), so they must be explicit:
+#  - Windows: suppress the console window that would otherwise open.
+#  - macOS: produce the .app bundle that macdeployqt processes.
+if(WIN32)
+    set_target_properties(emoplay PROPERTIES WIN32_EXECUTABLE TRUE)
+elseif(APPLE)
+    set_target_properties(emoplay PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "EmoPlay"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.emoplay.EmoPlay"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION "${PROJECT_VERSION}")
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(emo_core PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(emoplay PRIVATE -Wall -Wextra -Wpedantic)

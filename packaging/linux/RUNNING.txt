@@ -1,0 +1,28 @@
+EmoPlay (Linux, x86_64) — tar.gz snapshot
+=========================================
+
+This is the fallback package, produced only when AppImage assembly fails
+twice in the release CI. It contains the compiled `emoplay` binary and this
+note; shared libraries are NOT bundled.
+
+Run:
+
+    ./bin/emoplay [media-file]
+
+Runtime dependencies (Debian / Ubuntu 24.04 example):
+
+    sudo apt-get install \
+      libmpv2 \
+      qt6-base-dev qt6-declarative-dev \
+      qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+      qml6-module-qtquick-window qml6-module-qtquick-dialogs \
+      qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
+      qml6-module-qt-labs-platform
+
+Desktop integration (optional): copy emoplay.desktop into
+~/.local/share/applications/, replacing
+
+    Exec=emoplay
+
+with the absolute path of ./bin/emoplay, and install the emoplay icon into
+~/.local/share/icons/hicolor/256x256/apps/.

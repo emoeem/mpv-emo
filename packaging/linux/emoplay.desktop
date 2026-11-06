@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=EmoPlay
+GenericName=Media Player
+Comment=Media player built on libmpv and Qt6/QML
+Exec=emoplay
+Icon=emoplay
+Terminal=false
+Categories=AudioVideo;Video;Player;
+MimeType=video/*;audio/*;
+Keywords=video;movie;media;player;mpv;
+StartupWMClass=emoplay
