@@ -15,7 +15,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Quick QuickControls2)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)
 
