@@ -401,6 +401,92 @@ ApplicationWindow {
         onAccepted: mpvItem.loadExternalSubtitle(subtitleDialog.selectedFile)
     }
 
+    // Playlist side drawer; the list itself is the engine's mirrored
+    // "playlist" property, so the playing entry marker comes from mpv.
+    Drawer {
+        id: playlistDrawer
+        edge: Qt.RightEdge
+        width: Math.min(root.width * 0.42, 440)
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 6
+
+            Label {
+                text: qsTr("Playlist")
+                font.weight: Font.DemiBold
+                color: "#cfcfd8"
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ListView {
+                    id: playlistList
+                    anchors.fill: parent
+                    clip: true
+                    model: mpvItem.playlist
+                    delegate: ItemDelegate {
+                        width: ListView.view.width
+                        highlighted: modelData.playing === true
+                        text: (modelData.title && modelData.title.length > 0)
+                              ? modelData.title : modelData.filename
+                        onClicked: mpvItem.playlistPlayIndex(index)
+                    }
+                    ScrollIndicator.vertical: ScrollIndicator {}
+                }
+
+                Label {
+                    anchors.centerIn: parent
+                    visible: playlistList.count === 0
+                    text: qsTr("Playlist is empty — add files below")
+                    color: "#8a8a96"
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Button {
+                    text: qsTr("Add files")
+                    onClicked: playlistFileDialog.open()
+                }
+                Button {
+                    text: qsTr("Clear")
+                    onClicked: mpvItem.playlistClear()
+                }
+                Item { Layout.fillWidth: true }
+                IconButton {
+                    glyph: "\u25C0"
+                    ToolTip.text: qsTr("Previous")
+                    onClicked: mpvItem.playlistPrev()
+                }
+                IconButton {
+                    glyph: "\u25B6"
+                    ToolTip.text: qsTr("Next")
+                    onClicked: mpvItem.playlistNext()
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: playlistFileDialog
+        title: qsTr("Add files to playlist")
+        fileMode: FileDialog.OpenFiles
+        nameFilters: [
+            qsTr("Media files (*.mkv *.mp4 *.m4v *.avi *.mov *.webm *.ts *.flac *.mp3 *.m4a *.ogg *.opus *.wav)"),
+            qsTr("All files (*)")
+        ]
+        onAccepted: {
+            for (var i = 0; i < playlistFileDialog.selectedFiles.length; ++i)
+                mpvItem.appendToPlaylist(playlistFileDialog.selectedFiles[i])
+        }
+    }
+
     Shortcut { sequence: "Space"; onActivated: mpvItem.togglePlayPause() }
     Shortcut { sequence: "Left"; onActivated: mpvItem.seekBy(-5) }
     Shortcut { sequence: "Right"; onActivated: mpvItem.seekBy(5) }
@@ -423,6 +509,8 @@ ApplicationWindow {
         sequence: "S"
         onActivated: if (!mpvItem.idle) subtitleDialog.open()
     }
+    Shortcut { sequence: "<"; onActivated: mpvItem.playlistPrev() }
+    Shortcut { sequence: ">"; onActivated: mpvItem.playlistNext() }
     Shortcut { sequence: "Q"; onActivated: root.close() }
     Shortcut {
         sequence: "Esc"

@@ -64,6 +64,9 @@ signals:
     void mutedChanged(bool muted);
     void mediaTitleChanged(const QString &title);
     void trackListChanged(const QVariantList &tracks);
+    // Mirrors mpv's "playlist" property: a list of entries with filename,
+    // current/playing flags, optional title.
+    void playlistChanged(const QVariantList &playlist);
     void idleActiveChanged(bool idle);
     void fileLoaded();
     void playbackRestarted();

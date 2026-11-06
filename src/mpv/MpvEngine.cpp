@@ -109,6 +109,7 @@ void MpvEngine::observeDefaults()
     mpv_observe_property(m_mpv, 0, "mute", MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 0, "track-list", MPV_FORMAT_NODE);
+    mpv_observe_property(m_mpv, 0, "playlist", MPV_FORMAT_NODE);
     mpv_observe_property(m_mpv, 0, "idle-active", MPV_FORMAT_FLAG);
 }
 
@@ -145,6 +146,9 @@ void MpvEngine::handleEvents()
                 emit mediaTitleChanged(QString::fromUtf8(*static_cast<char **>(prop->data)));
             else if (qstrcmp(prop->name, "track-list") == 0 && prop->format == MPV_FORMAT_NODE)
                 emit trackListChanged(
+                    nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
+            else if (qstrcmp(prop->name, "playlist") == 0 && prop->format == MPV_FORMAT_NODE)
+                emit playlistChanged(
                     nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
             else if (qstrcmp(prop->name, "idle-active") == 0 && prop->format == MPV_FORMAT_FLAG)
                 emit idleActiveChanged(*static_cast<int *>(prop->data) != 0);

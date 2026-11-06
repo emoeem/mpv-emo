@@ -23,6 +23,7 @@ class MpvItem : public QQuickFramebufferObject
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QVariantList trackList READ trackList NOTIFY trackListChanged)
+    Q_PROPERTY(QVariantList playlist READ playlist NOTIFY playlistChanged)
 
 public:
     explicit MpvItem(QQuickItem *parent = nullptr);
@@ -38,6 +39,7 @@ public:
     bool muted() const { return m_muted; }
     QString mediaTitle() const { return m_mediaTitle; }
     QVariantList trackList() const { return m_trackList; }
+    QVariantList playlist() const { return m_playlist; }
 
     // Writers only forward the request to the engine; the authoritative state
     // comes back through the engine's observed-property signals.
@@ -62,6 +64,15 @@ public slots:
     // selects it immediately (sub-add ... select).
     void loadExternalSubtitle(const QString &path);
 
+    // Playlist commands. appendToPlaylist queues a file without interrupting
+    // playback (loadfile ... append-play; mpv starts it when idle). The
+    // authoritative list state comes back through playlistChanged.
+    void appendToPlaylist(const QString &path);
+    void playlistNext();
+    void playlistPrev();
+    void playlistPlayIndex(int index);
+    void playlistClear();
+
 signals:
     void positionChanged(double position);
     void durationChanged(double duration);
@@ -71,6 +82,7 @@ signals:
     void mutedChanged(bool muted);
     void mediaTitleChanged(const QString &title);
     void trackListChanged(const QVariantList &tracks);
+    void playlistChanged(const QVariantList &playlist);
 
 private:
     MpvEngine *m_engine = nullptr;
@@ -83,4 +95,5 @@ private:
     bool m_muted = false;
     QString m_mediaTitle;
     QVariantList m_trackList;
+    QVariantList m_playlist;
 };

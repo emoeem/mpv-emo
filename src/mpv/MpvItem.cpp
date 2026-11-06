@@ -144,6 +144,10 @@ MpvItem::MpvItem(QQuickItem *parent)
         m_trackList = v;
         emit trackListChanged(v);
     });
+    connect(m_engine, &MpvEngine::playlistChanged, this, [this](const QVariantList &v) {
+        m_playlist = v;
+        emit playlistChanged(v);
+    });
     connect(m_engine, &MpvEngine::idleActiveChanged, this, [this](bool v) {
         m_idle = v;
         emit idleChanged(v);
@@ -231,4 +235,36 @@ void MpvItem::loadExternalSubtitle(const QString &path)
     if (m_engine)
         m_engine->command({QStringLiteral("sub-add"), MpvEngine::toMediaPath(path),
                            QStringLiteral("select")});
+}
+
+void MpvItem::appendToPlaylist(const QString &path)
+{
+    if (m_engine)
+        m_engine->command({QStringLiteral("loadfile"), MpvEngine::toMediaPath(path),
+                           QStringLiteral("append-play")});
+}
+
+void MpvItem::playlistNext()
+{
+    if (m_engine)
+        m_engine->command({QStringLiteral("playlist-next")});
+}
+
+void MpvItem::playlistPrev()
+{
+    if (m_engine)
+        m_engine->command({QStringLiteral("playlist-prev")});
+}
+
+void MpvItem::playlistPlayIndex(int index)
+{
+    if (m_engine)
+        m_engine->setProperty(QStringLiteral("playlist-play-index"),
+                              QString::number(index));
+}
+
+void MpvItem::playlistClear()
+{
+    if (m_engine)
+        m_engine->command({QStringLiteral("playlist-clear")});
 }
