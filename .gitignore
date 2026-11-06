@@ -1,0 +1,20 @@
+# Build directories
+build/
+build-*/
+out/
+cmake-build-*/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.user
+*.autosave
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Tooling output
+compile_commands.json
+.clangd/
+.cache/
