@@ -13,15 +13,27 @@ QualityController::QualityController(MpvEngine *engine, AppSettings *settings,
     : QObject(parent), m_engine(engine), m_settings(settings),
       m_shadersDir(shadersDir)
 {
-    // A new file resets the auto demotion: the user's persisted tier comes
-    // back and gets a fresh chance to trigger.
     if (m_engine) {
+        // A new file resets the auto demotion (the user's persisted tier
+        // comes back and gets a fresh chance to trigger) and ALWAYS reruns
+        // the decision table: options decided for the previous file
+        // (scale/tone-mapping/shader groups) must not carry over.
         connect(m_engine, &MpvEngine::fileLoaded, this, [this]() {
             if (m_autoDowngraded) {
                 m_autoDowngraded = false;
                 emit autoDowngradeChanged();
-                applyProfile();
             }
+            applyProfile();
+        });
+        // video-params/container-fps usually arrive after file-loaded (and
+        // only then); every arrival reruns the decision table so the
+        // resolution-grouped shaders and HDR/HFR avoidance follow the real
+        // media instead of the unknown-parameter guess.
+        connect(m_engine, &MpvEngine::videoParamsChanged, this, [this]() {
+            applyProfile();
+        });
+        connect(m_engine, &MpvEngine::containerFpsChanged, this, [this]() {
+            applyProfile();
         });
     }
 }

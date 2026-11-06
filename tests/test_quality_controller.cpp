@@ -23,6 +23,7 @@ private slots:
     void startupAdoptsImportedShaders();
     void autoDowngradeDemotesActiveTierOnly();
     void fileLoadedRestoresUserTier();
+    void fileLoadedReappliesProfileWithoutDemotion();
 
 private:
     QString shaderA() const { return m_dir.filePath(u"shaders/a.glsl"_s); }
@@ -221,6 +222,32 @@ void TestQualityController::fileLoadedRestoresUserTier()
 
     QCOMPARE(controller.autoDowngraded(), false);
     QCOMPARE(engine.getProperty(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+}
+
+void TestQualityController::fileLoadedReappliesProfileWithoutDemotion()
+{
+    // file-loaded must rerun the decision table even when the previous
+    // file never triggered the auto demotion: options decided for the old
+    // file must not carry over to the next one.
+    MpvEngine engine;
+    QVERIFY(engine.initialize());
+
+    AppSettings settings(m_dir.filePath(u"reapply.json"_s));
+    QualityController controller(&engine, &settings,
+                                 m_dir.filePath(u"shaders"_s), &engine);
+    controller.startup();
+    controller.setQualityTier(u"high"_s);
+    QCOMPARE(engine.getProperty(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+    QCOMPARE(controller.autoDowngraded(), false);
+
+    // Simulate a profile change decided outside the controller (another
+    // writer of settings.json), then start the next file.
+    settings.setQualityTier(u"low"_s);
+    QCOMPARE(engine.getProperty(u"scale"_s).toString(), u"ewa_lanczossharp"_s);
+    emit engine.fileLoaded();
+
+    QCOMPARE(engine.getProperty(u"scale"_s).toString(), u"lanczos"_s);
+    QCOMPARE(controller.autoDowngraded(), false);
 }
 
 QTEST_GUILESS_MAIN(TestQualityController)
