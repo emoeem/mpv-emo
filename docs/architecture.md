@@ -29,10 +29,10 @@
 | 渲染控件 | `src/mpv/MpvItem.{h,cpp}` | `QQuickFramebufferObject` 子类；render 线程持有 `mpv_render_context`；把引擎状态（含 trackList/playlist）镜像为 Q_PROPERTY；提供 play/pause/seek、音轨/字幕选择（set aid/sid）、`sub-add` 外挂字幕、loadfile append-play / playlist-next/prev / playlist-play-index / playlist-clear 等命令方法 |
 | 配置解析 | `src/config/MpvConfigParser.{h,cpp}` | 解析 `mpv.conf`（无行内注释、profile 段）与 `input.conf`（引号分词、空白后 # 才是注释）；纯逻辑、可单元测试；P4 兼容层的数据基础 |
 | 播放历史 | `src/history/HistoryStore.{h,cpp}` | QObject 服务；engine `fileLoaded` 时记录 path/title/duration，5 秒 QTimer 从 `time-pos` 刷新当前条目 position；按 path 去重置顶、上限 50 条；`AppDataLocation/history.json`（QSaveFile 原子写入），QML 经 `entries` 属性读取 |
-| 配置扫描 | `src/compat/MpvProfileScanner.{h,cpp}` | 定位用户 mpv 配置目录（Linux `~/.config/mpv`，查不到再查 `$XDG_CONFIG_HOME/mpv`；Windows `%APPDATA%/mpv`；macOS `~/.config/mpv`；base-dir 可注入，测试不碰真实 HOME）；`scan()` 产出 `ImportSummary`：逐文件条目数（复用 MpvConfigParser）、脚本/着色器/字体计数、字节数 |
+| 配置扫描 | `src/compat/MpvProfileScanner.{h,cpp}` | 定位用户 mpv 配置目录（对齐 mpv osdep/path-unix.c 语义：Linux/macOS 设了 `$XDG_CONFIG_HOME` 时**只用** `$XDG_CONFIG_HOME/mpv`，否则 `~/.config/mpv`，旧 `~/.mpv` 仅在主候选不存在时兜底；Windows `%APPDATA%/mpv`；base-dir 可注入，测试不碰真实 HOME）；`scan()` 产出 `ImportSummary`：逐文件条目数（复用 MpvConfigParser）、脚本/着色器/字体计数、字节数 |
 | 导入规则 | `src/compat/MpvImportRules.{h,cpp}` | 把解析出的 mpv.conf 条目变成 `initialize()` 选项映射：强制 vo=libmpv/osc=no/terminal=no；剥离 include、profile、scripts、input-conf、config-dir、写入路径与转储类选项；写入路径重定向到 EmoPlay AppData；其余选项原样通过；全部动作留审计行 |
 | 键名映射 | `src/compat/MpvKeyName.{h,cpp}` | Qt 按键事件→mpv 键名（可打印文本优先、命名键表、ctrl/alt/meta/shift 组合）；不可映射返回空串。支撑 P4 input.conf 绑定在嵌入 UI 内生效 |
-| 兼容控制 | `src/compat/CompatController.{h,cpp}` | 读 settings 决策→重扫→组装 `initialize()` 选项映射（full/selective 走导入规则、input-conf 指向用户原文件、scripts 逗号分隔显式列表、fonts-dir/config-dir 指向用户目录）；standalone 用 EmoPlay 自有空 input.conf；向导三选一动作持久化决策 |
+| 兼容控制 | `src/compat/CompatController.{h,cpp}` | 读 settings 决策→重扫→组装 `initialize()` 选项映射（full/selective 走导入规则、导入 input.conf 时指向用户原文件、scripts 按平台路径分隔符显式列表、fonts-dir/config-dir 指向用户目录）；未导入 input.conf 的一切情形（未决策/skip/未勾选/standalone）都指向 EmoPlay 自有空 input.conf 并经 `errorOccurred` 上报创建失败；向导三选一动作持久化决策 |
 | 应用设置 | `src/settings/AppSettings.{h,cpp}` | `AppDataLocation/settings.json`（QSaveFile 原子写入）：导入决策（full/selective/standalone/skip）、选择性文件清单、上次 ImportSummary、dontAskAgain、决策时间戳；损坏文件回退默认值 |
 
 ## 关键决策与理由
@@ -78,7 +78,7 @@ QML 首启向导（检测到配置且未决策时）      # 选择持久化，�
 | 剥离 | `include` | 任意文件加载会绕过审计，直接丢弃 |
 | 剥离 | `profile` | P4 不应用 profile（含 profiles.conf 场景段），报告名称 |
 | 剥离 | `scripts` / `input-conf` / `config-dir` | 由 CompatController 统一提供 |
-| 剥离 | `watch-later-dir` / `screenshot-directory` / `gpu-shader-cache-dir` / `icc-cache-dir` | 用户值丢弃，重定向到 `AppData/{watch_later,screenshots,shader_cache,icc_cache}` |
+| 剥离 | `watch-later-dir` / `screenshot-directory` / `gpu-shader-cache-dir` / `icc-cache-dir` / `demuxer-cache-dir` | 用户值丢弃，重定向到 `AppData/{watch_later,screenshots,shader_cache,icc_cache,demuxer_cache}` |
 | 剥离 | `screenshot-template`（含 `~~` 时） | `~~` 展开会写进用户目录；纯文件名模板保留 |
 | 剥离 | `dump-stats` / `log-file` | 避免向用户指定路径写文件 |
 | 通过 | `hwdec` / `volume` / `keep-open` / `slang` 等 | 原样导入，后出现的重复项覆盖（同 mpv 语义） |
@@ -104,7 +104,13 @@ include 式拆分（mpv-Emo 用它放场景模式，mpv.conf 放默认启用的 
 
 ### 脚本与 script-opts / shaders / fonts
 
-- `scripts` 选项 = 逗号分隔的绝对路径显式列表（含逗号的路径不受支持，记录为限制）。
+- `scripts` 选项 = **路径分隔符**连接的绝对路径显式列表——Unix `:`、Windows `;`
+  （mpv 的 `--scripts` 是 OPT_PATHLIST，见 options.rst `--scripts=file1.lua:file2.lua:...`，
+  不是普通列表选项的 `,`）。含分隔符字符的脚本路径不受支持，记录为限制。
+- `load-scripts` 在 `MpvEngine::initialize` 内置默认中强制 `no`：mpv 默认 yes，
+  会在 libmpv 下自动加载 config 目录 `scripts/` 子目录的全部脚本
+  （player/scripting.c `mp_load_scripts`）；脚本只经显式 `scripts` 列表进入
+  （`load-scripts=no` 只关目录自动加载，不关显式列表）。
 - `config-dir` 指向用户 mpv 目录（只读用途）：脚本内 `~~` 路径、`mp.find_config_file`
   的 script-opts 查找、mpv.conf 里 `~~/shaders/...` 这类值都解析到用户原位置。
 - `fonts-dir` 指向用户 `fonts/` 目录。
@@ -117,9 +123,15 @@ include 式拆分（mpv-Emo 用它放场景模式，mpv.conf 放默认启用的 
 `importDecision`（full / selective / standalone / skip）、选择性文件清单、上次
 `ImportSummary` 快照、`dontAskAgain`。首启检测到配置且未决策时弹
 `ImportWizard.qml`：完整导入 / 选择性导入（按文件复选）/ 独立配置，另有
-「不再询问」+「Not now」。独立配置 = 不设 config-dir、不加载用户脚本，`input-conf`
-指向 EmoPlay 自有的空 input.conf（防止 mpv 静默自动加载用户 input.conf 造成泄漏）。
-重跑导入入口：`compatController.requestWizard()`（设置页后续阶段接）。
+「不再询问」+「Not now」。
+
+**input-conf 恒定受控**：mpv 在 `mpv_initialize` 内无条件加载 input.conf
+（player/main.c `mp_input_load_config`），input-conf 未设或打不开时回退到 config
+目录的 input.conf（input/input.c），且不受 libmpv `config=no` 门控。因此只要用户
+未显式导入 input.conf（未决策 / skip / 选择性导入未勾选），`input-conf` 一律指向
+EmoPlay 自有的空 input.conf（AppData 下按需创建，创建失败经 `errorOccurred`
+上报——否则 mpv 会静默回退加载用户文件）。重跑导入入口：
+`compatController.requestWizard()`（设置页后续阶段接）。
 
 ### 已知限制
 

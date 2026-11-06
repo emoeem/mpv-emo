@@ -10,7 +10,7 @@
 | P1 | libmpv 嵌入 + 渲染上下文 | **in-progress** | Linux CI 构建+冒烟通过；Win/mac 待 CI 矩阵（后续任务） |
 | P2 | 播放器基础 UI（控制栏/快捷键/全屏/打开文件） | **in-progress** | Linux CI 冒烟通过；实机交互待验证 |
 | P3 | 音轨/字幕/播放列表/历史 | **done** | Linux CI 构建+单测+冒烟 success（评审修复后 `6b719ac`）；实机交互验证与播放列表持久化列入后续批次 |
-| P4 | mpv 配置兼容层（扫描/导入/回写） | **in-progress**（实现说明：扫描/导入/向导/脚本与 input.conf 生效已落地并附单测；状态终审待 CI 全绿后由文档管理员确认；GUI 键位编辑器与设置页入口、回写属后续批次） | execution-log 批次 5：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
+| P4 | mpv 配置兼容层（扫描/导入/回写） | **in-progress**（实现说明：扫描/导入/向导/脚本与 input.conf 生效已落地并附单测；状态终审待 CI 全绿后由文档管理员确认；GUI 键位编辑器与设置页入口、回写属后续批次） | 待录入 execution-log 批次 5（批次收尾补记）；commits：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
 | P5 | 高级画质（滤镜/HDR/tone-mapping UI） | pending | — |
 | P6 | 媒体库与文件管理 | pending | — |
 | P7 | 音乐模式（歌词/EQ） | pending | — |
