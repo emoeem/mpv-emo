@@ -12,6 +12,7 @@
 #include "history/HistoryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
+#include "plugins/PluginManager.h"
 #include "quality/QualityController.h"
 
 int main(int argc, char *argv[])
@@ -47,6 +48,18 @@ int main(int argc, char *argv[])
     if (!compatOptions.isEmpty())
         qInfo("Applying %lld imported mpv option(s)",
               static_cast<long long>(compatOptions.size()));
+
+    // P8 plugin store: enabled script plugins are APPENDED to the "scripts"
+    // option the compat layer assembled (the user's imported script list is
+    // never replaced); applies the same initialize() option map below.
+    PluginManager pluginManager(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation),
+        PluginManager::defaultCatalogPath());
+    QObject::connect(&pluginManager, &PluginManager::errorOccurred,
+                     [](const QString &message) {
+                         qWarning("plugins: %s", qPrintable(message));
+                     });
+    pluginManager.appendScriptOptions(compatOptions);
 
     // Destruction order matters: `view` is declared after `mpvEngine`, so it
     // is destroyed first; QML items (and their mpv render contexts) are
@@ -99,6 +112,8 @@ int main(int argc, char *argv[])
                                            &compatController);
     view.rootContext()->setContextProperty(QStringLiteral("qualityController"),
                                            &qualityController);
+    view.rootContext()->setContextProperty(QStringLiteral("pluginManager"),
+                                           &pluginManager);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())
