@@ -47,23 +47,26 @@ public:
 };
 
 // check mode with baseline / single-file destination / replace-mode
-// shader pack: the three shapes the manager must tell apart.
-static const char kCatalogJson[] = R"({
-    "sources": [
-        {"name": "uosc_danmaku",
-         "url": "https://git.example/uosc_danmaku.git",
-         "branch": "main", "source": ".",
-         "destination": "scripts/uosc_danmaku",
-         "mode": "check", "baseline": "old1"},
-        {"name": "mpv360",
-         "url": "https://git.example/mpv360.git",
-         "branch": "master", "source": ".",
-         "destination": "scripts/mpv360.lua", "mode": "check"},
-        {"name": "anime4k",
-         "url": "https://git.example/anime4k.git",
-         "branch": "master", "source": "glsl",
-         "destination": "shaders/Anime4K/glsl", "mode": "replace"}
-    ]})";
+// shader pack: the three shapes the manager must tell apart. Escaped
+// literals instead of a raw string: Qt 6.4's moc chokes on raw strings
+// containing quotes and then reports "No relevant classes found" for this
+// file's Q_OBJECT test class (undefined vtable at link time).
+static const char kCatalogJson[] =
+    "{\"sources\": ["
+    "{\"name\": \"uosc_danmaku\","
+    " \"url\": \"https://git.example/uosc_danmaku.git\","
+    " \"branch\": \"main\", \"source\": \".\","
+    " \"destination\": \"scripts/uosc_danmaku\","
+    " \"mode\": \"check\", \"baseline\": \"old1\"},"
+    "{\"name\": \"mpv360\","
+    " \"url\": \"https://git.example/mpv360.git\","
+    " \"branch\": \"master\", \"source\": \".\","
+    " \"destination\": \"scripts/mpv360.lua\", \"mode\": \"check\"},"
+    "{\"name\": \"anime4k\","
+    " \"url\": \"https://git.example/anime4k.git\","
+    " \"branch\": \"master\", \"source\": \"glsl\","
+    " \"destination\": \"shaders/Anime4K/glsl\", \"mode\": \"replace\"}"
+    "]}";
 
 QByteArray catalogJson()
 {
