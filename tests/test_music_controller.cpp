@@ -10,6 +10,22 @@
 
 using namespace Qt::Literals::StringLiterals;
 
+namespace {
+
+// Minimal track-list entry for the isAudioMedia() cases: {type: "audio"|
+// "video"|"sub"}, plus the optional albumart flag (mpv exposes embedded
+// cover art as a video track with albumart=yes).
+QVariantMap track(const QString &type, bool albumart = false)
+{
+    QVariantMap entry;
+    entry.insert(u"type"_s, type);
+    if (albumart)
+        entry.insert(u"albumart"_s, true);
+    return entry;
+}
+
+} // namespace
+
 // Pure-logic tests for the music-mode decision rules (no engine) plus the
 // equalizer mapping. The EQ "live engine" cases drive a real idle libmpv
 // core (headless), so they double as the runtime verification that the
