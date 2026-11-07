@@ -250,7 +250,10 @@ Item {
                 spacing: 8
 
                 Repeater {
-                    model: musicController.equalizerGains.length
+                    // One slider per fixed band: the controller's constant,
+                    // not the gains array length (the gains list mirrors the
+                    // same count, but the band grid does not depend on it).
+                    model: musicController.bandCount
 
                     delegate: ColumnLayout {
                         id: bandColumn

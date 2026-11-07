@@ -1,6 +1,8 @@
 #include <QStandardPaths>
 #include <QtTest>
 
+#include <QDebug>
+#include <QQmlError>
 #include <memory>
 
 #include <QQmlComponent>
@@ -45,21 +47,40 @@ void TestMusicPage::pageInstantiates()
     engine.rootContext()->setContextProperty(
         QStringLiteral("musicController"), &controller);
 
+    // Record QML engine warnings: a half-created page (the root survives
+    // while a child failed) comes back non-null with the errors only in
+    // the engine's warning channel — and CI is the only compiler, so its
+    // log is the only diagnostic there is.
+    QStringList qmlMessages;
+    QObject::connect(&engine, &QQmlEngine::warnings,
+                     [&](const QList<QQmlError> &warnings) {
+                         for (const QQmlError &warning : warnings)
+                             qmlMessages.append(warning.toString());
+                     });
+
     QQmlComponent component(
         &engine, QUrl::fromLocalFile(
                      QStringLiteral(EMOPLAY_SOURCE_DIR "/qml/MusicPage.qml")));
     std::unique_ptr<QObject> page(component.create());
     QVERIFY2(page, qPrintable(component.errorString()));
+    QVERIFY2(qmlMessages.isEmpty(),
+             qPrintable(qmlMessages.join(u"\n"_s)));
 
     // The equalizer repeater built one slider per band (counted by type,
     // not by reading the var property back — var-to-QVariant conversion is
     // lossy for object references).
     int sliderCount = 0;
+    QStringList childTypes;
     const QList<QObject *> children = page->findChildren<QObject *>();
     for (const QObject *child : children) {
+        childTypes.append(QString::fromLatin1(child->metaObject()->className()));
         if (child->inherits("QQuickSlider"))
             ++sliderCount;
     }
+    if (sliderCount != controller.bandCount())
+        qWarning().nospace().noquote()
+            << "instantiated item tree (" << childTypes.size()
+            << " children): " << childTypes.join(u", "_s);
     QCOMPARE(sliderCount, controller.bandCount());
 
     // Collapsed by default; exposing it again must not error out.
