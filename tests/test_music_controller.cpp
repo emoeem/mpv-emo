@@ -293,6 +293,10 @@ void TestMusicController::equalizerPersistedAcrossInstances()
     MpvEngine engine;
     QVERIFY(engine.initialize());
     AppSettings settings(file);
+    // AppSettings does not read the file in its constructor (the compat
+    // layer owns loading in the app); tests must load explicitly, like
+    // test_app_settings does.
+    QVERIFY(settings.load());
     MusicController controller(&engine, &settings);
     QCOMPARE(controller.equalizerEnabled(), true);
     QCOMPARE(controller.equalizerPreset(), u"custom"_s);
@@ -310,6 +314,7 @@ void TestMusicController::equalizerPersistedAcrossInstances()
     MpvEngine engine2;
     QVERIFY(engine2.initialize());
     AppSettings settings2(file);
+    QVERIFY(settings2.load());
     MusicController controller2(&engine2, &settings2);
     QCOMPARE(controller2.equalizerEnabled(), false);
     controller2.startup();
