@@ -19,6 +19,7 @@
 #include "mpv/MpvItem.h"
 #include "music/MusicController.h"
 #include "plugins/PluginManager.h"
+#include "plugins/RemoteManifestSource.h"
 #include "quality/IccController.h"
 #include "quality/InterpolationController.h"
 #include "quality/QualityController.h"
@@ -75,6 +76,27 @@ int main(int argc, char *argv[])
                      [](const QString &message) {
                          qWarning("plugins: %s", qPrintable(message));
                      });
+
+    // P8 v2 online manifest sources: fetches manager.json-style catalogs
+    // (the default upstream source + user-added ones) over
+    // QNetworkAccessManager, caches them under AppData/plugin-sources/ and
+    // pushes the fetched manifests into the plugin manager so online entries
+    // install like builtin ones. Network failures degrade to the last cached
+    // list — never fatal.
+    RemoteManifestSource remoteSources(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation),
+        &pluginManager);
+    QObject::connect(&remoteSources, &RemoteManifestSource::errorOccurred,
+                     [](const QString &message) {
+                         qWarning("plugin-sources: %s", qPrintable(message));
+                     });
+
+    // P8 plugin store: enabled script plugins are APPENDED to the "scripts"
+    // option the compat layer assembled (the user's imported script list is
+    // never replaced); applies the same initialize() option map below. Runs
+    // after RemoteManifestSource so plugins installed from online sources in
+    // earlier sessions are appended too (RemoteManifestSource pushes its
+    // cached manifests into the manager at construction).
     pluginManager.appendScriptOptions(compatOptions);
 
     // Destruction order matters: `view` is declared after `mpvEngine`, so it
@@ -193,6 +215,8 @@ int main(int argc, char *argv[])
                                            &libraryModel);
     view.rootContext()->setContextProperty(QStringLiteral("pluginManager"),
                                            &pluginManager);
+    view.rootContext()->setContextProperty(QStringLiteral("remotePluginSources"),
+                                           &remoteSources);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

@@ -1,0 +1,30 @@
+{
+  "//": "P8 v2 remote manifest-source fixture: same shape as the default source (mpv-Emo manager.json, docs/nativeization-plan.md §4.1). Tests fetch this body through a synchronous fake PluginRemoteFetcher — no real HTTP. The first entry reuses the name 'uosc' with a DIFFERENT url than the builtin catalog, exercising builtin-catalog priority.",
+  "sources": [
+    {
+      "name": "uosc",
+      "url": "https://git.example/uosc_danmaku.git",
+      "branch": "main",
+      "source": ".",
+      "destination": "scripts/uosc_danmaku",
+      "mode": "check",
+      "baseline": "d8c1cd8"
+    },
+    {
+      "name": "mpv360",
+      "url": "https://git.example/mpv360.git",
+      "branch": "master",
+      "source": ".",
+      "destination": "scripts/mpv360.lua",
+      "mode": "check"
+    },
+    {
+      "name": "remote_shader_pack",
+      "url": "https://git.example/pack.git",
+      "branch": "master",
+      "source": "glsl",
+      "destination": "shaders/Pack/glsl",
+      "mode": "replace"
+    }
+  ]
+}

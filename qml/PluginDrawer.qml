@@ -69,6 +69,9 @@ Drawer {
 
     edge: Qt.RightEdge
     width: Overlay.overlay ? Math.min(Overlay.overlay.width * 0.46, 460) : 440
+    // P8 v2: first open triggers the online-manifest refresh (once per
+    // session; the section then serves the cached list until Refresh).
+    onOpened: remoteSection.refreshOnShow()
     onClosed: {
         if (keyFocusTarget)
             keyFocusTarget.forceActiveFocus()
@@ -131,6 +134,15 @@ Drawer {
             color: "#8a8a96"
             font.pixelSize: 11
             wrapMode: Text.WordWrap
+        }
+
+        // P8 v2: online manifest sources — remote entries with install/
+        // update buttons and the last refresh time; network failures degrade
+        // to the last cached list (see RemoteManifestSource).
+        PluginRemoteSection {
+            id: remoteSection
+            Layout.fillWidth: true
+            drawer: pluginDrawer
         }
 
         ListView {

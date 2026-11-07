@@ -112,6 +112,15 @@ add_executable(test_plugin_manager test_plugin_manager.cpp)
 target_link_libraries(test_plugin_manager PRIVATE emo_core Qt6::Test)
 add_test(NAME test_plugin_manager COMMAND test_plugin_manager)
 
+# P8 v2 online manifest sources: remote JSON parsing (fixture), the
+# AppData/plugin-sources cache round trip and the local+remote merge, driven
+# by a synchronous fake PluginRemoteFetcher (headless, no real HTTP).
+add_executable(test_remote_manifest_source test_remote_manifest_source.cpp)
+target_link_libraries(test_remote_manifest_source PRIVATE emo_core Qt6::Test)
+target_compile_definitions(test_remote_manifest_source PRIVATE
+    EMOPLAY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME test_remote_manifest_source COMMAND test_remote_manifest_source)
+
 # P6 media library: pure scan logic, folder list persistence, the worker
 # thread scan and the QML list model. QtCore-only; runs headless.
 add_executable(test_library_store test_library_store.cpp)

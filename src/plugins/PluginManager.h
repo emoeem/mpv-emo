@@ -103,6 +103,12 @@ public:
     // (see mergeScriptOptions).
     void appendScriptOptions(QVariantMap &options) const;
 
+    // P8 v2 online sources (RemoteManifestSource): manifests fetched from
+    // configured manifest sources. Names resolve through the builtin catalog
+    // FIRST (the shipped catalog wins on conflicts); remote entries appear in
+    // plugins() and checkAll() covers both catalogs.
+    void setRemoteCatalog(const QVector<PluginManifest> &manifests);
+
     static QString defaultCatalogPath();
 
 signals:
@@ -132,9 +138,13 @@ private:
     bool loadCatalog();
     void loadState();
     bool saveState();
+    // Builtin catalog first, then the remote one, deduped by name.
+    QVector<PluginManifest> allManifests() const;
     PluginManifest manifestFor(const QString &name) const;
     bool isInstalled(const QString &name) const;
     QString pluginDir(const QString &name) const;
+    // The plugins() row for one manifest (catalog + live install state).
+    QVariantMap pluginRow(const PluginManifest &manifest) const;
     // Joins a QVariant holding the current "scripts" option value (QString,
     // or QStringList as a defensive fallback) into |joined|. False for any
     // other type — such values are never overwritten.
@@ -159,6 +169,9 @@ private:
     QString m_statePath;
     QString m_catalogPath;
     QVector<PluginManifest> m_catalog;
+    // Manifests fetched from online sources (P8 v2 RemoteManifestSource);
+    // never persisted here, the source object owns the cache.
+    QVector<PluginManifest> m_remoteCatalog;
     QHash<QString, PluginState> m_state;
     // Live results of the last remote check (not persisted).
     QHash<QString, QString> m_remoteHeads;
