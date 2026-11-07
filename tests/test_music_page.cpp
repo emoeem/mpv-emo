@@ -75,7 +75,7 @@ void TestMusicPage::pageInstantiates()
     // lossy for object references).
     int sliderCount = 0;
     QStringList childTypes;
-    QObject *repeater = nullptr;
+    const QObject *repeater = nullptr;
     const QList<QObject *> children = page->findChildren<QObject *>();
     for (const QObject *child : children) {
         childTypes.append(QString::fromLatin1(child->metaObject()->className()));
@@ -96,13 +96,16 @@ void TestMusicPage::pageInstantiates()
              {u"typeof musicController"_s, u"musicController"_s,
               u"musicController.bandCount"_s,
               u"musicController.equalizerGains.length"_s}) {
-            QVariant value;
+            bool undefinedValue = false;
             QString error;
-            QQmlExpression(engine.rootContext(), page.get(), expression)
-                .evaluate(&value, &error);
+            const QVariant value =
+                QQmlExpression(engine.rootContext(), page.get(), expression)
+                    .evaluate(&undefinedValue, &error);
             qWarning().nospace().noquote()
-                << "qml expr '" << expression << "' -> " << value
-                << (error.isEmpty() ? QString() : u" [error: " + error + u"]"_s);
+                << "qml expr '" << expression << "' ->" << value
+                << "undefined:" << undefinedValue
+                << (error.isEmpty() ? QString()
+                                    : u" [error: "_s + error + u"]"_s);
         }
         // Bisect: does a minimal Repeater create items on this runner?
         QQmlComponent probeComponent(&engine);
