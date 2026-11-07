@@ -24,6 +24,12 @@ constexpr auto kQualityToneMapping = "toneMappingMode";
 constexpr auto kQualityScaleOverride = "scaleOverride";
 constexpr auto kQualityDebandMode = "debandMode";
 constexpr auto kQualityManualShaders = "manualShaderList";
+constexpr auto kQualityInterpolation = "interpolation";
+constexpr auto kInterpolationEnabled = "enabled";
+constexpr auto kInterpolationPreset = "preset";
+constexpr auto kQualityIcc = "icc";
+constexpr auto kIccEnabled = "enabled";
+constexpr auto kIccProfilePath = "profilePath";
 constexpr auto kMusic = "music";
 constexpr auto kMusicEqualizerEnabled = "equalizerEnabled";
 constexpr auto kMusicEqualizerPreset = "equalizerPreset";
@@ -61,6 +67,10 @@ bool AppSettings::load()
     m_qualityScaleOverride.clear();
     m_qualityDebandMode = QStringLiteral("auto");
     m_manualShaderList.clear();
+    m_qualityInterpolationEnabled = false;
+    m_qualityInterpolationPreset = QStringLiteral("MEMC_RIFE_STD");
+    m_qualityIccEnabled = false;
+    m_qualityIccProfilePath.clear();
     m_musicEqualizerEnabled = false;
     m_musicEqualizerPreset = QStringLiteral("flat");
     m_musicEqualizerGains.clear();
@@ -103,6 +113,22 @@ bool AppSettings::load()
     for (const QJsonValue &value : shaders)
         m_manualShaderList.append(value.toString());
 
+    const QJsonObject interpolation =
+        quality.value(QLatin1String(kQualityInterpolation)).toObject();
+    m_qualityInterpolationEnabled =
+        interpolation.value(QLatin1String(kInterpolationEnabled))
+            .toBool(m_qualityInterpolationEnabled);
+    m_qualityInterpolationPreset =
+        interpolation.value(QLatin1String(kInterpolationPreset))
+            .toString(m_qualityInterpolationPreset);
+
+    const QJsonObject icc =
+        quality.value(QLatin1String(kQualityIcc)).toObject();
+    m_qualityIccEnabled =
+        icc.value(QLatin1String(kIccEnabled)).toBool(m_qualityIccEnabled);
+    m_qualityIccProfilePath =
+        icc.value(QLatin1String(kIccProfilePath)).toString();
+
     const QJsonObject music = obj.value(QLatin1String(kMusic)).toObject();
     m_musicEqualizerEnabled =
         music.value(QLatin1String(kMusicEqualizerEnabled)).toBool();
@@ -127,6 +153,18 @@ bool AppSettings::save()
     for (const QString &shader : m_manualShaderList)
         shaders.append(shader);
     quality.insert(QLatin1String(kQualityManualShaders), shaders);
+
+    QJsonObject interpolation;
+    interpolation.insert(QLatin1String(kInterpolationEnabled),
+                         m_qualityInterpolationEnabled);
+    interpolation.insert(QLatin1String(kInterpolationPreset),
+                         m_qualityInterpolationPreset);
+    quality.insert(QLatin1String(kQualityInterpolation), interpolation);
+
+    QJsonObject icc;
+    icc.insert(QLatin1String(kIccEnabled), m_qualityIccEnabled);
+    icc.insert(QLatin1String(kIccProfilePath), m_qualityIccProfilePath);
+    quality.insert(QLatin1String(kQualityIcc), icc);
 
     QJsonObject music;
     music.insert(QLatin1String(kMusicEqualizerEnabled), m_musicEqualizerEnabled);
@@ -216,6 +254,38 @@ void AppSettings::setManualShaderList(const QStringList &shaders)
     if (m_manualShaderList == shaders)
         return;
     m_manualShaderList = shaders;
+    emit changed();
+}
+
+void AppSettings::setQualityInterpolationEnabled(bool enabled)
+{
+    if (m_qualityInterpolationEnabled == enabled)
+        return;
+    m_qualityInterpolationEnabled = enabled;
+    emit changed();
+}
+
+void AppSettings::setQualityInterpolationPreset(const QString &preset)
+{
+    if (m_qualityInterpolationPreset == preset)
+        return;
+    m_qualityInterpolationPreset = preset;
+    emit changed();
+}
+
+void AppSettings::setQualityIccEnabled(bool enabled)
+{
+    if (m_qualityIccEnabled == enabled)
+        return;
+    m_qualityIccEnabled = enabled;
+    emit changed();
+}
+
+void AppSettings::setQualityIccProfilePath(const QString &path)
+{
+    if (m_qualityIccProfilePath == path)
+        return;
+    m_qualityIccProfilePath = path;
     emit changed();
 }
 

@@ -23,6 +23,13 @@
 //   - scaleOverride ("" = engine picks, or an explicit --scale value)
 //   - debandMode ("auto"/"yes"/"no" user override, default "auto")
 //   - manualShaderList (absolute shader paths checked in the quality panel)
+//  - the P5 v2 objects in the same quality section:
+//   - interpolation (frame interpolation):
+//     - enabled (bool, default false)
+//     - preset (vs/ preset id, e.g. "MEMC_RIFE_STD", default "MEMC_RIFE_STD")
+//   - icc (display configuration):
+//     - enabled (bool, default false)
+//     - profilePath (absolute ICC file path, default "")
 //  - the P7 music preferences in a nested "music" section:
 //   - equalizerEnabled (10-band EQ wired to mpv's af chain, default false)
 //   - equalizerPreset ("flat"/"bass"/"vocal"/"live"/"custom", default "flat")
@@ -79,6 +86,21 @@ public:
     void setQualityDebandMode(const QString &mode);
     const QStringList &manualShaderList() const { return m_manualShaderList; }
     void setManualShaderList(const QStringList &shaders);
+    // P5 v2 interpolation / icc objects (nested in the quality section).
+    bool qualityInterpolationEnabled() const
+    {
+        return m_qualityInterpolationEnabled;
+    }
+    void setQualityInterpolationEnabled(bool enabled);
+    QString qualityInterpolationPreset() const
+    {
+        return m_qualityInterpolationPreset;
+    }
+    void setQualityInterpolationPreset(const QString &preset);
+    bool qualityIccEnabled() const { return m_qualityIccEnabled; }
+    void setQualityIccEnabled(bool enabled);
+    QString qualityIccProfilePath() const { return m_qualityIccProfilePath; }
+    void setQualityIccProfilePath(const QString &path);
 
     // P7 music section. Same contract as the quality section: setters emit
     // changed() and persist only when the caller calls save().
@@ -108,6 +130,10 @@ private:
     QString m_qualityScaleOverride;
     QString m_qualityDebandMode = QStringLiteral("auto");
     QStringList m_manualShaderList;
+    bool m_qualityInterpolationEnabled = false;
+    QString m_qualityInterpolationPreset = QStringLiteral("MEMC_RIFE_STD");
+    bool m_qualityIccEnabled = false;
+    QString m_qualityIccProfilePath;
     bool m_musicEqualizerEnabled = false;
     QString m_musicEqualizerPreset = QStringLiteral("flat");
     QList<double> m_musicEqualizerGains;
