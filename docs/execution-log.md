@@ -204,6 +204,8 @@
   - `CHANGELOG.md`：0.1.0-alpha（已发布）/ 0.2.0-beta（未发布）/ 计划中 v1.0-rc 三节，从 execution-log 提炼
 - **测试设计**：`tests/test_update_checker.cpp` 纯逻辑（tag 解析、版本比较表、isNewer、URL 组装含尾斜杠裁剪）+ **127.0.0.1 回环 HTTP 服务**（QTcpServer 罐头响应：找到新版断言信号/属性/User-Agent/端点路径；html_url 缺失回退；同版本/404/坏 JSON 静默；hold-open 验证 in-flight 去重只发一次请求）——不发真实请求、不依赖外网；initTestCase 强制 `QNetworkProxy::NoProxy` 防环境代理劫持回环
 - **本地验证**（无编译工具链，脚本类实测）：`bash -n` 语法通过；benchmark.sh 三路径实测——无工具跳过路径、（桩 ffmpeg/mpv）计时路径、生成失败路径均符合预期（桩数字非真实解码，真实跑分待实体机）；UpdateChecker C++ 与单测待 CI
-- **涉及 commit**：`19059ce` feat(update)、`8ea1b94` feat(ui)、`56834d5` build(cpack)、`fd587b4` feat(tools)、`1e43c68` docs(testing)、`29fc48d` docs(changelog) + 本 docs 提交
-- **CI 结论**：待回填（PR 创建后以 `env -u GH_TOKEN gh run` 实查 ctest 计数与冒烟结果补记）
+- **涉及 commit**：`19059ce` feat(update)、`8ea1b94` feat(ui)、`56834d5` build(cpack)、`fd587b4` feat(tools)、`1e43c68` docs(testing)、`29fc48d` docs(changelog)、`1c3aeca` docs(p9) + CI 修复 `159b267`/`d9fe078` + 本 CI 结论回填提交
+- **CI 结论**：**success**（`env -u GH_TOKEN gh run` 实查）——最终 head `d9fe078`，run 42385706934（pull_request 触发，job Linux/Ubuntu 24.04 (Qt 6.4, GCC 13)；日志实查「100% tests passed, 0 tests failed out of 17」+ Xvfb/llvmpipe QML 冒烟通过）。批次内 2 轮失败（无本地编译 CI 修复链，失败 run 日志实查）：
+  1. `1c3aeca` run 42384789152 failure（Build 步骤）：test_update_checker.cpp 编译败——LoopbackServer 各方法引用 `m_holdOpen` 但从未声明成员（`'m_holdOpen' was not declared in this scope`），且误用不存在的 `QTcpSocket::disconnectFromServer`（QAbstractSocket 实为 `disconnectFromHost`）→ `159b267` 声明成员 + 改用正确 API
+  2. `159b267` run 42385431556 failure（Unit tests 步骤，其余 16 套件全过）：`QTEST_MAIN` 因 emo_core 传递链接的 Qt6::Gui 展开为 QGuiApplication，ctest 无显示器环境下加载 xcb 平台插件失败（`no Qt platform plugin could be initialized`）→ `d9fe078` 改 `QTEST_GUILESS_MAIN`（本套件只需 QtCore + QtNetwork，回环 socket/QNAM 不需要 GUI 应用）
 - **风险与待验证**：无本地编译，UpdateChecker/UpdateBadge 的编译与 QML 绑定由 CI 验证；无认证 GitHub API 限速 60 req/h（每启动一次远低于限速，但限速/离线时角标静默不出现属预期）；CPack DEB/RPM 依赖完备性未验证（按 minimal 定位）；benchmark.sh 仅 Linux 验证；角标点击行为与 release 页打开待实机验证
