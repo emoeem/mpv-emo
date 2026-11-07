@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="96" viewBox="0 0 420 96">
+  <text x="8" y="70" font-family="-apple-system, Segoe UI, Noto Sans, sans-serif" font-size="64" font-weight="800" fill="#f8f8f2">Emo</text>
+  <text x="152" y="70" font-family="-apple-system, Segoe UI, Noto Sans, sans-serif" font-size="64" font-weight="800" fill="#bd93f9">Play</text>
+  <rect x="308" y="26" width="90" height="44" rx="22" fill="#bd93f9"/>
+  <path d="M344 37 L366 48 L344 59 Z" fill="#191a21"/>
+</svg>
