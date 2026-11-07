@@ -221,7 +221,8 @@ file-browser/recentmenu/history-bookmark（nativeization-plan §2.2）的原生
   `available=false`，一切请求直接丢弃——抽屉保持类型图标占位，绝不崩溃。
 - **按需生成**：LibraryModel 每次 rebuild（过滤/扫描/可用性变化）把可见
   条目路径交给服务；服务缓存命中（`<sha1(path+mtime)>.jpg` 存在且非空）
-  时同步发 `thumbnailReady`，未命中且 ffmpeg 可用时入队。
+  时同步发 `thumbnailReady`，未命中且 ffmpeg 可用时入队；正在生成中的
+  路径同样去重（重复请求直接丢弃，不重新入队重跑整链）。
 - **串行后台链**（每条目两个子进程，事件驱动、30 s 杀超时）：
   1. `ffmpeg -i <file>` —— 无输出文件，ffmpeg 照例 exit 1 并把
      `Duration: HH:MM:SS.mmm` 打到 stderr（按行正则解析；`N/A`/缺行 →
