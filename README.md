@@ -50,25 +50,18 @@ real-machine test matrix.
 Prebuilt artifacts are published on the
 [GitHub Releases](https://github.com/emoeem/mpv-emo/releases) page.
 
-The current [v0.2.0-beta](https://github.com/emoeem/mpv-emo/releases/tag/v0.2.0-beta)
-(published 2026-11-07) is a **beta prerelease** containing the player core,
-config import (P4), quality engine v1 (P5) and media library (P6) — music
-mode, the plugin store and the update checker are already merged on `main`
-and will ship in the next release. Expect rough edges. Linux builds are
-compiled, unit-tested and smoke-tested in CI; Windows and macOS artifacts
-are CI-built but not yet verified on real machines.
+The current [v1.0](https://github.com/emoeem/mpv-emo/releases/tag/v1.0)
+release ships installers for all three platforms:
 
 | Platform | Asset |
 |---|---|
-| Linux (x86_64) | `EmoPlay-0.2.0-beta-linux-x86_64.AppImage` |
-| Windows (x86_64) | `EmoPlay-0.2.0-beta-windows-x86_64.zip` |
-| macOS (Apple Silicon) | `EmoPlay-0.2.0-beta-macos.dmg` |
+| Linux | `EmoPlay-1.0-linux-x86_64.AppImage` |
+| macOS | `EmoPlay-1.0-macos.dmg` (unsigned — right-click → Open on first launch) |
+| Windows | `EmoPlay-1.0-windows-x86_64.zip` (portable, unsigned) |
 
-**v1.0-rc is not released yet.** The rc cut is gated on the approved
-optimization backlog ([docs/backlog.md](docs/backlog.md), R1–R6), the
-real-machine test matrix in [docs/testing-report.md](docs/testing-report.md),
-and code signing / notarization — none of which have landed. Earlier
-prereleases (v0.1.0-alpha) remain available on the releases page.
+Older releases: [v1.0-rc](https://github.com/emoeem/mpv-emo/releases/tag/v1.0-rc) ·
+[v0.2.0-beta](https://github.com/emoeem/mpv-emo/releases/tag/v0.2.0-beta) ·
+[v0.1.0-alpha](https://github.com/emoeem/mpv-emo/releases/tag/v0.1.0-alpha).
 
 No code signing or notarization on any prerelease: the macOS bundle is
 ad-hoc signed only, so Gatekeeper will prompt on first launch (right-click

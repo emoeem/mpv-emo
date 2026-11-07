@@ -71,10 +71,17 @@ AppImage ≈106 MB / zip ≈91 MB / dmg ≈72 MB
 - 同 0.1.0-alpha：签名/公证未做，Windows/macOS 未经实体验证。
 - 实机试用报告暴露三处启动阻塞，已在 tag 之后以 `09fba73` 修复（见下节）。
 
-## [未发布] — v1.0-rc 候选（0.2.0-beta 之后合入 main 的全部变更）
+## [1.0.0] — 2026-11-08
+
+> v1.0-rc 与 v1.0 同内容（v1.0 增补 UI 现代化，见下）。
 
 ### Added
 
+- **UI 现代化**（PR #8）：Dracula 派生 Theme 单例（色彩/圆角/动效令牌集中）、
+  QtQuick.Shapes 矢量线图标 17 个（替换 Unicode 字形）、悬浮胶囊控制栏
+  （半透明圆角 + 三层柔和阴影 + 强调色圆形主按钮）、PillSlider、双色
+  wordmark 空闲屏与最近播放卡片；`--screenshot` 截图模式（UI 验证/未来
+  视觉回归）。
 - **P7 音乐模式 v1**（PR #3）：.lrc 解析（多时间戳/BOM/CRLF/元数据标签）、
   纯音频判定（albumart 封面轨不排除）、歌词高亮滚动、10 段均衡器
   （`af=equalizer=...` 链 + 平直/低音增强/人声/现场预设 + music 节持久化，
@@ -116,19 +123,15 @@ AppImage ≈106 MB / zip ≈91 MB / dmg ≈72 MB
   最终 main CI：run 42391432826 success（ctest 22/22 + Xvfb QML 冒烟）。
   明细与盲区清单见 `docs/testing-report.md`。
 
-## [计划中] — v1.0-rc 放行门槛
+## [后续] — 已批准的优化路线（docs/backlog.md）
 
-v1.0-rc **尚未发布**（远端 tag 实查仅 alpha/beta）。放行前需要：
+v1.0 已发布。R1–R6 六包优化（所有者 2026-11-07 批准）作为 v1.1+ 迭代执行：
 
-- **backlog R1–R6 六包执行**（docs/backlog.md，2026-11-07 所有者批准；
-  全部合并后发布 v1.0）。
-- **P9 收尾**：Windows Authenticode / macOS Developer ID + 公证（backlog
-  Blocked，需购买证书）；系统集成（文件/协议关联、外部播放器移交）；deploy
-  式首启体检（四态 available/degraded/unavailable/unverified）；设置中心与
-  键位编辑器（冲突检测、捕获录入）、窗口行为设置项。
-- **P10 收尾**：`docs/testing-report.md` 手工矩阵在实体机铺开并留档；
-  `tools/benchmark.sh` 性能基线落表；崩溃日志与 `mpv log-message` 收集链路
-  （backlog R2/R5）。
-- **既有收尾项**（roadmap「后续批次」）：Windows/macOS CI 矩阵；P4 配置
-  回写；P5 off 档恢复用户导入值、GPU 档位检测与压制组词库、着色器商店；
-  P7 专辑浏览/封面墙、gapless/loop、passthrough 互锁、EQ 防抖。
+- R1 构建现代化：Qt 6.8 CI 矩阵、qt_add_qml_module（qmlcachegen）、HDR 直通调研。
+- R2 可靠性：OSD 错误 toast、日志系统（mpv log-message + 文件滚动 + 查看器）、单实例、崩溃捕获。
+- R3 数据层：LibraryStore SQLite 化、播放列表持久化、缩略图 LRU。
+- R4 体验：拖拽打开、章节 UI、截图导出、预设导入导出、i18n 管线、双语 README。
+- R5 质量：真实媒体集成测试、ASAN/UBSAN job、qmllint、覆盖率。
+- R6 安全与发布：插件信任模型 UI、更新检查 opt-in + SHA256、make install、AppImageUpdate 元数据。
+
+Blocked（需所有者资源）：Windows Authenticode / macOS 公证（证书）、真 HDR 实机验证（HDR 硬件）、崩溃上报服务端。
