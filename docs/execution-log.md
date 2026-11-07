@@ -159,3 +159,20 @@
   6. **属性不可取回的事件被整体丢弃**（`bcc34dc`）：mpv 对取不到的观察属性报 MPV_FORMAT_NONE（client.h mpv_observe_property 注明，且每次观察都有首次通知），P5 分支要求精确值格式致事件全弃、跨文件残留镜像（上一文件的 HDR 状态点亮到纯音频文件）。处置：video-params/container-fps/frame-drop-count/current-vo/video-format 五分支接受 MPV_FORMAT_NONE 并发清除值（空 map/0/空串）；既有播放属性语义不动（改动超出本批次范围）。
   7. （docs）**roadmap 单测计数 11/11 有误**（`6915d2d`）：run 42305908172 日志实为「0 tests failed out of 10」→ 更正为 10/10。
 - **风险与待验证**：无本地编译，CI 只验证「构建 + 单测（ctest 10/10）+ QML 能启动」；画质抽屉、自动降档、着色器挂载/让位的实机交互待验证；tone-mapping 仅限嵌入 classic gpu 渲染器可用值（spline/bt.2446a 为 gpu-next 专属）；RIFE/VS 补帧、ICC 自动加载、着色器商店、GPU 档位检测/压制组词库、off 档恢复用户导入值均未含（roadmap「后续批次」P5 收尾项）
+
+## 2026-11-07 · 批次 7：P7 音乐模式 v1（music-mode + equalizer-gui 简化版）
+
+- **任务**：T27–T31（nativeization-plan music-mode + equalizer-gui 简化版；分支 `feat/p7-music-mode`，一个功能一个 commit）
+- **产出**：
+  - 歌词解析：`src/music/LrcParser.{h,cpp}`（T27，`d88afed`）纯逻辑 .lrc 解析（`[mm:ss(.xx/.xxx)]` 1–3 位小数、多时间戳行、`[ti]/[ar]/[al]`、UTF-8 BOM、CRLF；无时间戳行与未知标签跳过）+ `lrcCandidates()` 同名 .lrc（→.LRC）匹配规则；test_lrc_parser 全覆盖
+  - 引擎观察：MpvEngine `metadataChanged(QVariantMap)`（T28，`805811a`）照 P5 模式观察 metadata(NODE)，不可用（NONE）清空镜像
+  - 音乐模式服务：`src/music/MusicController.{h,cpp}`（T29，`6233547`）纯音频判定（track-list 无 video **且** 音频扩展名；`albumart` 封面轨不排除——mpv 0.37 input.rst `track-list/N/albumart` 核实）+ 同名 .lrc 解析 + `lyrics`/`lyricIndex`（time-pos 驱动）+ metadata 中继；判定/索引为纯函数可无引擎单测
+  - 均衡器 v1（T30，`db906ea`）：10 段（31.25 Hz–16 kHz，`equalizer=f=..:t=q:w=1.4:g=<dB>` 链）+ 预设（flat/bass/vocal/live，拖动转 custom）+ settings.json `music` 节持久化（AppSettings 复用 QSaveFile 契约）；inert 规则（未启用绝不写 af）；单测含真引擎 `af` 回读（m_option.c name/params 节点序列化）——mpv 0.37 + libavfilter 接受该链的运行时证明
+  - QML 与接线（T31，`712cf51`）：`qml/MusicPage.qml` 独立文件（大标题 media-title、歌词高亮滚动、EQ 折叠面板，命令式同步）；Main.qml 仅加 `musicMode` 只读绑定 + Loader 挂载点；main.cpp 构造 MusicController（共享 compat 层 AppSettings）+ 上下文属性；test_music_page 离屏实例化（CI 冒烟不触发 Loader，页面需自有启动测试）
+- **mpv/FFmpeg 核实结论**（本地无工具链，逐项对上游源码实查后落码）：
+  1. mpv v0.37.0 无内置 superequalizer：filters/user_filters.c 仅注册 `af_lavfi`/`af_lavfi_bridge`，其余名字经 libavfilter 桥（check_unknown_entry→mp_lavfi_is_usable）
+  2. FFmpeg n6.1 superequalizer 为 18 固定频段（65.4 Hz–20 kHz，`1b`..`18b`），增益 0..20 无负值、**无 `bands=` 参数**（任务书预设格式不存在）→ 按 fallback 条款改用 `equalizer` 串联（af_biquads.c：f/t/w/g，g ∈ -900..900，与 10 段 ±12 dB UI 一一对应）
+  3. `af` 读回为 `{name,label,enabled,params}` 节点表（m_option.c obj settings list NODE 序列化），据此设计真引擎回读断言
+- **涉及 commit**：`d88afed`、`805811a`、`6233547`、`db906ea`、`712cf51` + docs（本条与 architecture/roadmap 更新）
+- **已知限制（记入 roadmap「P7 收尾」）**：写 af 整链替换（EQ 启用期覆盖导入 af，唯一管理者语义同 P5 glsl-shaders）；无 passthrough 互锁；滑条每整数步重建 af 链（无防抖）；专辑浏览/封面墙、gapless/loop、歌词 `[offset:]` 不在 v1
+- **CI 结论**：**success**（run 42379553921，1m56s，日志实查「100% tests passed, 0 tests failed out of 14」+ Xvfb QML 冒烟通过）。本批次 PR（#3）因分支先于 PR #2 分叉、与 main 冲突，自创建起 `mergeable_state: dirty`，GitHub 无法创建 `refs/pull/3/merge` 而**静默跳过全部 pull_request 运行**（8 个 head commit 零 check run；同窗口 PR #1/#2 与 main 的 run 正常）。合并 main（`3b7d36e`）解决四处冲突（CMakeLists.txt / main.cpp / roadmap / execution-log，两侧产出全保留）后 CI 首跑，逐轮修复无本地编译暴露的问题：`LrcParser::LrcLine` 误引用（`LrcLine` 在命名空间层，`498ea18`）、MusicPage 相邻字符串字面量拼接 QML 不支持（`ee9b868`）、LrcParser 缺 `#include <QDir>`（`c4c8332`）、测试 `track()` 助手未定义与字面量缺 `_s`（`16109b5`/`46f00da`）、歌词索引 epsilon 1e-6 过大致 4.999999 s 误命中（`d12acb5`）、EQ 持久化测试未按 AppSettings 契约显式 `load()`（`ae45f35`）、页测滑条计数改走 `childItems()` 视觉树——Repeater delegate 无 QObject 父，`findChildren` 不可见（`9d5acf9`，探测过程见 `c8c73aa`…`413a50d`）。

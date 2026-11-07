@@ -25,7 +25,7 @@
 
 | 模块 | 文件 | 职责 |
 |---|---|---|
-| 引擎封装 | `src/mpv/MpvEngine.{h,cpp}` | 拥有 `mpv_handle`；初始化（vo=libmpv, hwdec=auto-safe, keep-open；用户选项应用后**重申** vo/osc/terminal）；`command/setProperty/getProperty/loadFile`、`toMediaPath`（file://→本地路径）；`keyPress`（mpv `keypress` 命令，P4 按键转发）与 `mpvKeyName`（Qt 键→mpv 键名）；wakeup 回调→GUI 线程事件泵；观察属性（time-pos/duration/pause/volume/mute/media-title/track-list/playlist/idle-active；P5 增 video-params(NODE)/container-fps(DOUBLE)/frame-drop-count(NODE int64)/current-vo/video-format(STRING)）→Qt 信号 |
+| 引擎封装 | `src/mpv/MpvEngine.{h,cpp}` | 拥有 `mpv_handle`；初始化（vo=libmpv, hwdec=auto-safe, keep-open；用户选项应用后**重申** vo/osc/terminal）；`command/setProperty/getProperty/loadFile`、`toMediaPath`（file://→本地路径）；`keyPress`（mpv `keypress` 命令，P4 按键转发）与 `mpvKeyName`（Qt 键→mpv 键名）；wakeup 回调→GUI 线程事件泵；观察属性（time-pos/duration/pause/volume/mute/media-title/track-list/playlist/idle-active；P5 增 video-params(NODE)/container-fps(DOUBLE)/frame-drop-count(NODE int64)/current-vo/video-format(STRING)；P7 增 metadata(NODE)，不可用时清空镜像）→Qt 信号 |
 | 渲染控件 | `src/mpv/MpvItem.{h,cpp}` | `QQuickFramebufferObject` 子类；render 线程持有 `mpv_render_context`；把引擎状态（含 trackList/playlist，P5 增 videoWidth/videoHeight/fps/droppedFrames/hdrActive 镜像与 2s 掉帧率采样 QTimer）镜像为 Q_PROPERTY；提供 play/pause/seek、音轨/字幕选择（set aid/sid）、`sub-add` 外挂字幕、loadfile append-play / playlist-next/prev / playlist-play-index / playlist-clear 等命令方法 |
 | 配置解析 | `src/config/MpvConfigParser.{h,cpp}` | 解析 `mpv.conf`（无行内注释、profile 段）与 `input.conf`（引号分词、空白后 # 才是注释）；纯逻辑、可单元测试；P4 兼容层的数据基础 |
 | 播放历史 | `src/history/HistoryStore.{h,cpp}` | QObject 服务；engine `fileLoaded` 时记录 path/title/duration，5 秒 QTimer 从 `time-pos` 刷新当前条目 position；按 path 去重置顶、上限 50 条；`AppDataLocation/history.json`（QSaveFile 原子写入），QML 经 `entries` 属性读取 |
@@ -35,7 +35,9 @@
 | 导入规则 | `src/compat/MpvImportRules.{h,cpp}` | 把解析出的 mpv.conf 条目变成 `initialize()` 选项映射：强制 vo=libmpv/osc=no/terminal=no；剥离 include、profile、scripts、input-conf、config-dir、写入路径与转储类选项；写入路径重定向到 EmoPlay AppData；其余选项原样通过；全部动作留审计行 |
 | 键名映射 | `src/compat/MpvKeyName.{h,cpp}` | Qt 按键事件→mpv 键名（可打印文本优先、命名键表、ctrl/alt/meta/shift 组合）；不可映射返回空串。支撑 P4 input.conf 绑定在嵌入 UI 内生效 |
 | 兼容控制 | `src/compat/CompatController.{h,cpp}` | 读 settings 决策→重扫→组装 `initialize()` 选项映射（full/selective 走导入规则、导入 input.conf 时指向用户原文件、scripts 按平台路径分隔符显式列表、fonts-dir/config-dir 指向用户目录）；未导入 input.conf 的一切情形（未决策/skip/未勾选/standalone）都指向 EmoPlay 自有空 input.conf 并经 `errorOccurred` 上报创建失败；向导三选一动作持久化决策；`settings()` 暴露共享 AppSettings 实例 |
-| 应用设置 | `src/settings/AppSettings.{h,cpp}` | `AppDataLocation/settings.json`（QSaveFile 原子写入）：导入决策（full/selective/standalone/skip）、选择性文件清单、上次 ImportSummary、dontAskAgain、决策时间戳；P5 quality 节（contentMode/qualityTier/toneMappingMode/scaleOverride/debandMode/manualShaderList）；损坏文件回退默认值 |
+| 应用设置 | `src/settings/AppSettings.{h,cpp}` | `AppDataLocation/settings.json`（QSaveFile 原子写入）：导入决策（full/selective/standalone/skip）、选择性文件清单、上次 ImportSummary、dontAskAgain、决策时间戳；P5 quality 节（contentMode/qualityTier/toneMappingMode/scaleOverride/debandMode/manualShaderList）；P7 music 节（equalizerEnabled/equalizerPreset/equalizerGains）；损坏文件回退默认值 |
+| 歌词解析 | `src/music/LrcParser.{h,cpp}` | 纯逻辑 .lrc 解析（无 mpv/GUI，全部单测）：`[mm:ss(.xx/.xxx)]` 时间戳（1–3 位小数）、多时间戳行、`[ti]/[ar]/[al]` 元数据、UTF-8 BOM 与 CRLF；无时间戳行与未知方括号标签跳过；输出按时间排序；`lrcCandidates()` 定义「音频同目录同名 .lrc（.lrc→.LRC）」匹配规则 |
+| 音乐模式 | `src/music/MusicController.{h,cpp}` | P7 音乐模式服务（HistoryStore 模式：信号驱动 + 按需读属性，不缓存播放状态）：纯音频判定（track-list 无 video 且文件名扩展名属音频集；`albumart` 封面轨不排除，mpv 0.37 input.rst `track-list/N/albumart`）→ `audioMode` 只读属性；解析同名 .lrc → `lyrics`（QVariantList）+ 按 time-pos 镜像 `lyricIndex`；10 段均衡器（af 链写入、预设/自定义持久化 music 节） |
 
 ## 关键决策与理由
 
@@ -118,6 +120,61 @@ QML 桥发给 QualityController；≥2 帧/秒且当前档位为 medium/high 时
 - tier=off 的「恢复默认」重置的是 mpv 默认值而非用户导入值（见上）。
 - `change-list glsl-shaders clr` 会连带清掉脚本运行期挂的着色器（引擎与
   面板是列表的唯一管理者；第三方脚本让位语义留待 P8）。
+
+## 音乐模式（P7 v1）
+
+`music-mode.lua` + `equalizer-gui.lua` 的原生等价物（简化 v1，见
+`docs/nativeization-plan.md` §「music-mode」/「equalizer-gui」）。分层同
+P4/P5：纯逻辑（LrcParser）+ 薄控制器（MusicController）+ 独立 QML 页。
+
+### 纯音频判定与歌词
+
+- 判定规则（`MusicController::isAudioMedia`，纯函数、无引擎单测）：
+  track-list 无 video 轨 **且** 媒体文件名扩展名属音频集。mpv 会把内嵌
+  封面暴露成 `albumart=yes` 的 video 轨（0.37 input.rst
+  `track-list/N/albumart`，MPV_FORMAT_FLAG），这类轨**不**排除——否则所有
+  带内嵌封面的 mp3/flac 都进不了音乐模式。
+- 歌词：`LrcParser::lrcCandidates()`（`<dir>/<stem>.lrc` → `.LRC`）+ 探测
+  存在性 → `LrcParser::parseFile()` → `lyrics`（`[{time, text}]`）+
+  `[ti]/[ar]/[al]` → `lrcMetadata`；`lyricIndex` 在每次
+  `positionChanged` 重算（「时间 ≤ 当前」的最后一行）。
+- QML：`qml/MusicPage.qml` 独立文件（qt_add_resources），Main.qml 只加
+  `musicMode` 只读绑定与 Loader 挂载点；播放控制沿用底部控制栏，页面内
+  不做点击暂停。歌词滚动按命令式同步约定走 Connections。
+
+### 均衡器 v1（mpv 0.37 核实结论，写入代码注释）
+
+- **superequalizer 不可用作 P7 载体**：mpv v0.37.0 内置 af 列表只有
+  `af_lavfi` 与 `af_lavfi_bridge`（filters/user_filters.c），无内置
+  superequalizer；FFmpeg n6.1 的 superequalizer 是 18 固定频段
+  （65.4 Hz–20 kHz，选项 `1b`..`18b`），增益钳在 0..20、无负增益、
+  **不存在 `bands=` 参数**——与 10 段 ±12 dB 的 UI 需求不匹配。
+- 采用 **`equalizer` 串联**（nativeization-plan 预案中的
+  lavfi equalizer/firequalizer 路线）：FFmpeg `equalizer`
+  （libavfilter/af_biquads.c）选项 `f`（频率 double）/`t`（width_type，
+  默认 q）/`w`（width）/`g`（增益 double，-900..900），与 UI 频段一一
+  对应；链形如
+  `equalizer=f=31.25:t=q:w=1.4:g=2,equalizer=...`（10 段，w=1.4≈√2 为
+  一倍频程间隔的 Q 值）。全部增益为 0 时不挂任何滤镜（inert）。
+- 应用路径：`setProperty("af", <链>)`（启用）/`setProperty("af", "")`
+  （停用，mpv 按空值重置列表）。**inert 规则**：EQ 未启用时启动序绝不
+  写 af，导入的 mpv.conf 选项原样生效；停用=清空（不恢复导入值）。
+- 持久化：settings.json `music` 节 `equalizerEnabled`/`equalizerPreset`
+  （flat/bass/vocal/live/custom）/`equalizerGains`（10 个 dB 值），
+  复用 AppSettings 与 QSaveFile 契约；错误长度回退 flat，越界钳 ±12。
+- 单测含**真引擎回读**：对空闲 libmpv 写入链后读回 `af` 属性
+  （OPT_SETTINGSLIST 经 m_option.c 序列化为 `name/label/enabled/params`
+  节点表），逐段断言 name/params——即 mpv 0.37 + 所链 libavfilter 接受
+  该链的运行时证明。
+
+### 已知限制（P7 v1 未含项）
+
+- 写 `af` 是整链替换：EQ 启用期间导入配置里的 `af` 被覆盖（唯一管理者
+  语义，同 P5 glsl-shaders）；无 passthrough 互锁（nativeization-plan
+  的互锁项，当前无直通 UI）；拖动滑条每个整数步都重建 af 链（无防抖）。
+- 专辑浏览、封图、gapless/loop 行为语义（music-mode.lua 的其余部分）、
+  歌词偏移标签（`[offset:]`）不在 v1；QML 交互正确性 CI 只验证「页面
+  能离屏实例化、滑条数量正确」，实机交互待用户验证。
 
 ## 配置兼容层（P4）
 
@@ -217,3 +274,4 @@ EmoPlay 自有的空 input.conf（AppData 下按需创建，创建失败经 `err
 - 播放列表只存在于 mpv 会话内，未持久化到磁盘（roadmap P3 原文含「持久化」，本批次未包含，待后续批次）；历史记录按上次 position 点击回放，暂不支持断点续播选项。
 - 配置兼容层（P4）已实现扫描/导入/使 input.conf 与脚本生效；GUI 键位编辑器与设置页入口待后续批次。
 - 画质引擎（P5 v1）已落地决策表/应用路径/面板/持久化；未含项与简化见「画质引擎（P5 v1）」一节。
+- 音乐模式（P7 v1）已落地歌词/EQ/纯音频判定/持久化；未含项与简化（af 唯一管理者、无 passthrough 互锁、专辑浏览等）见「音乐模式（P7 v1）」一节。

@@ -23,6 +23,10 @@
 //   - scaleOverride ("" = engine picks, or an explicit --scale value)
 //   - debandMode ("auto"/"yes"/"no" user override, default "auto")
 //   - manualShaderList (absolute shader paths checked in the quality panel)
+//  - the P7 music preferences in a nested "music" section:
+//   - equalizerEnabled (10-band EQ wired to mpv's af chain, default false)
+//   - equalizerPreset ("flat"/"bass"/"vocal"/"live"/"custom", default "flat")
+//   - equalizerGains (per-band gains in dB, up to 10 doubles, default all 0)
 //
 // Storage is a single JSON document written atomically via QSaveFile, mirroring
 // HistoryStore. The file path is injectable so tests use a temporary dir and
@@ -76,6 +80,18 @@ public:
     const QStringList &manualShaderList() const { return m_manualShaderList; }
     void setManualShaderList(const QStringList &shaders);
 
+    // P7 music section. Same contract as the quality section: setters emit
+    // changed() and persist only when the caller calls save().
+    bool musicEqualizerEnabled() const { return m_musicEqualizerEnabled; }
+    void setMusicEqualizerEnabled(bool enabled);
+    QString musicEqualizerPreset() const { return m_musicEqualizerPreset; }
+    void setMusicEqualizerPreset(const QString &preset);
+    const QList<double> &musicEqualizerGains() const
+    {
+        return m_musicEqualizerGains;
+    }
+    void setMusicEqualizerGains(const QList<double> &gains);
+
 signals:
     void changed();
 
@@ -92,4 +108,7 @@ private:
     QString m_qualityScaleOverride;
     QString m_qualityDebandMode = QStringLiteral("auto");
     QStringList m_manualShaderList;
+    bool m_musicEqualizerEnabled = false;
+    QString m_musicEqualizerPreset = QStringLiteral("flat");
+    QList<double> m_musicEqualizerGains;
 };
