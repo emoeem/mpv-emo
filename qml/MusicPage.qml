@@ -294,6 +294,7 @@ Item {
     }
 
     Component.onCompleted: {
+        eqSwitch.checked = musicController.equalizerEnabled
         musicPage.syncBandSliders()
         musicPage.syncPresetCombo()
     }

@@ -1,4 +1,5 @@
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QtTest>
 
 #include <QDebug>
@@ -13,6 +14,7 @@
 #include <QQuickStyle>
 
 #include "music/MusicController.h"
+#include "settings/AppSettings.h"
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -45,7 +47,16 @@ void TestMusicPage::initTestCase()
 void TestMusicPage::pageInstantiates()
 {
     QQmlEngine engine;
-    MusicController controller(nullptr, nullptr);
+    // The controller starts with a persisted enabled EQ, so the page must
+    // mount with the switch already on (the switch is imperative-sync only
+    // — no declarative binding — and equalizerChanged does not fire on
+    // mount; see the architecture's QML state-sync convention).
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    AppSettings settings(dir.filePath(u"page-eq-on.json"_s));
+    settings.setMusicEqualizerEnabled(true);
+    QVERIFY(settings.save());
+    MusicController controller(nullptr, &settings);
     engine.rootContext()->setContextProperty(
         QStringLiteral("musicController"), &controller);
 
@@ -126,6 +137,23 @@ void TestMusicPage::pageInstantiates()
                    << "errors:" << probeComponent.errorString();
     }
     QCOMPARE(sliderCount, controller.bandCount());
+
+    // The mounted switch mirrors the persisted enabled state (no
+    // declarative binding on checked; the onCompleted sync provides the
+    // initial value).
+    QQuickItem *switchItem = nullptr;
+    const std::function<QQuickItem *(QQuickItem *)> findSwitch =
+        [&](QQuickItem *item) -> QQuickItem * {
+        if (item->inherits("QQuickSwitch"))
+            return item;
+        for (QQuickItem *child : item->childItems())
+            if (QQuickItem *found = findSwitch(child))
+                return found;
+        return nullptr;
+    };
+    switchItem = findSwitch(qobject_cast<QQuickItem *>(page.get()));
+    QVERIFY2(switchItem, "equalizer switch not found in the visual tree");
+    QCOMPARE(switchItem->property("checked").toBool(), true);
 
     // Collapsed by default; exposing it again must not error out.
     QCOMPARE(page->property("eqPanelVisible").toBool(), false);
