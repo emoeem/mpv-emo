@@ -44,6 +44,11 @@ set_tests_properties(test_mpv_engine PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120)
 
+# P7 music mode: .lrc lyric parser is pure logic (no mpv, no GUI).
+add_executable(test_lrc_parser test_lrc_parser.cpp)
+target_link_libraries(test_lrc_parser PRIVATE emo_core Qt6::Test)
+add_test(NAME test_lrc_parser COMMAND test_lrc_parser)
+
 add_executable(test_history_store test_history_store.cpp)
 target_link_libraries(test_history_store PRIVATE emo_core Qt6::Test)
 # HistoryStore is pure Qt logic (plus an idle libmpv core); runs headless.
