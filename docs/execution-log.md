@@ -130,7 +130,37 @@
   4. **ensureOwnInputConf 误标 const**（`a35774a`）：Qt 信号方法非 const 成员，const 函数内 emit `errorOccurred` 无法编译（discards qualifiers）；该函数本就写文件、可能 emit——去 const。
 - **风险与待验证**：无本地编译，CI 只验证「构建 + 单测（8/8）+ QML 能启动」；真实 `~/.config/mpv` 的导入、向导交互、按键转发覆盖面（Slider 焦点消费方向键等已知边界见 architecture.md）待实机验证；profile 定义与 `profile=` 引用不应用（原生等价物归 P5）；GUI 键位编辑器、设置页入口（`compatController.requestWizard`）、配置回写属后续批次
 
-## 2026-11-07 · 批次 6：P7 音乐模式 v1（music-mode + equalizer-gui 简化版）
+## 2026-11-07 · 批次 6：P5 画质引擎 v1（批次收尾）
+
+- **任务**：T20–T26（P5 v1：决策表、属性观察与镜像、settings 持久化、QualityController、启动接线、deband 偏好、画质抽屉及测试）
+- **涉及 commit**（`git log --oneline` 实查，`7959f01`…`6915d2d` 共 18 条）：
+  - 实现：
+    - `7959f01` feat(quality): add QualityProfileEngine decision table with tests（T20）
+    - `d1a1b62` feat(mpv): observe video params, fps and drop-count properties（T21）
+    - `ab6de2e` feat(mpv): mirror video geometry, fps, drop stats and HDR state on MpvItem（T22，含 2s 掉帧采样）
+    - `d4e3e51` feat(settings): persist the quality section in settings.json（T23）
+    - `9a191ba` feat(quality): add QualityController with apply path and auto-downgrade（T24）
+    - `6d471be` feat(app): wire the quality controller into startup（T25）
+    - `7c643c9` feat(quality): user deband preference override（T25 deband 偏好）
+    - `167dc5b` feat(ui): add the quality settings drawer（T26）
+    - `78d4e06` docs: record the P5 v1 quality engine architecture and roadmap status
+  - CI 修复：`7e7ff26`（namespace alias）、`8cd4c87`（测试着色器文件集）、`cc9472c`（MPV_FORMAT_STRING setProperty）
+  - 评审修复：`826d992`、`c8bbbc6`、`00229a2`、`0ff92e6`、`7fa132e`、`bcc34dc`、`6915d2d`（docs 计数更正）
+- **CI 结论**：**success**（`env -u GH_TOKEN gh run list/view` 实查）——最终 head `6915d2d`，run 42314902255（job Linux/Ubuntu 24.04 (Qt 6.4, GCC 13) 1m27s，日志实查「100% tests passed, 0 tests failed out of 10」）；v1 主体落地时 head `167dc5b` run 42305521632 亦 success。批次内 3 轮失败（无本地编译 CI 修复链，失败 run 日志实查）：
+  1. `7959f01` run 42300687754 failure：test_quality_profile_engine.cpp 编译败（`using QPE = QualityProfileEngine;` 是类型别名不能别名命名空间，GCC `'QPE' does not name a type` 连锁报错）→ `7e7ff26` 改 namespace alias
+  2. `7e7ff26` run 42301137837 failure：ctest SIGSEGV，1/9——anime 用例只提供 SSimSuperRes.glsl，group-A 解析为空列表后 first() 解引用 → `8cd4c87` 为 anime 路径提供 Anime4K 文件集
+  3. `9a191ba` run 42303386212 failure：ctest SIGSEGV，1/10——`mpv_set_property(MPV_FORMAT_STRING)` 传 char* 本体而非 char* 地址（client.c 的 mpv_set_property_string 转发 &data），首个字符串属性写入即崩 → `cc9472c` 修复并补回读回归测试（P3 轨道选择的同型隐患一并消除）
+- **评审发现的问题与处置**（6 项 + 1 项 docs 更正，处置均以对应修复 commit 记载为准）：
+  1. **换文件后旧决策残留**（`826d992`）：file-loaded 仅在发生过自动降档时重算，且 video-params/container-fps 迟到无重算触发——旧文件的 scale/tone-mapping/分辨率分组着色器会带进下一个文件。处置：file-loaded 无条件重置降档并 applyProfile()；连接 videoParamsChanged/containerFpsChanged 重跑决策表。
+  2. **参数未知时挂最重着色器组**（`c8bbbc6`）：anime4kGroupForHeight(0) 落到 A+A 全链，且 height/fps=0、isHdr=false 绕过 HFR/HDR 避让——file-loaded 时点（参数未解码）恒挂最重组。处置：shader 组块以 height>0 门控，参数未知不挂组（scale/deband 仍应用），参数到达后重跑（与上条联动）。
+  3. **SDR 源不管理 tone-mapping 系列**（`00229a2`）：活动非 HDR 分支不发 tone-mapping/target-colorspace-hint，HDR 文件设置的 bt.2390 + hint=yes 残留到后续 SDR 文件，还会覆盖用户导入的 mpv.conf 值。处置：引擎活动期对称管理（HDR→tier/用户选择 + hint=yes；SDR→auto + hint=no）；inert-at-off 规则不变。
+  4. **deband/scale 覆盖值未校验**（`0ff92e6`）：手改 settings.json 可把 mpv v0.37.0 不支持的 `--scale` 值（如 spline36）逐字下发。处置：新增 isSupportedScale 按手册 --scale 选项校验、非法回退档位选择；deband 显式规范化（"yes"/"no" 之外一律 auto）。
+  5. **Anime4K A+A 链顺序依据过时**（`7fa132e`）：原顺序出自 v4.0.1 GLSL_Instructions.md，上游已缩为 stub；现行链定义在 md/Template/*/input.conf，Mode A+A (Fast)（CTRL+4）的第二枚 Restore_CNN_S 应在首次 upscale 之后、downscale 准备之前。处置：调整链序并更新引证注释，测试期望移至 index 3。
+  6. **属性不可取回的事件被整体丢弃**（`bcc34dc`）：mpv 对取不到的观察属性报 MPV_FORMAT_NONE（client.h mpv_observe_property 注明，且每次观察都有首次通知），P5 分支要求精确值格式致事件全弃、跨文件残留镜像（上一文件的 HDR 状态点亮到纯音频文件）。处置：video-params/container-fps/frame-drop-count/current-vo/video-format 五分支接受 MPV_FORMAT_NONE 并发清除值（空 map/0/空串）；既有播放属性语义不动（改动超出本批次范围）。
+  7. （docs）**roadmap 单测计数 11/11 有误**（`6915d2d`）：run 42305908172 日志实为「0 tests failed out of 10」→ 更正为 10/10。
+- **风险与待验证**：无本地编译，CI 只验证「构建 + 单测（ctest 10/10）+ QML 能启动」；画质抽屉、自动降档、着色器挂载/让位的实机交互待验证；tone-mapping 仅限嵌入 classic gpu 渲染器可用值（spline/bt.2446a 为 gpu-next 专属）；RIFE/VS 补帧、ICC 自动加载、着色器商店、GPU 档位检测/压制组词库、off 档恢复用户导入值均未含（roadmap「后续批次」P5 收尾项）
+
+## 2026-11-07 · 批次 7：P7 音乐模式 v1（music-mode + equalizer-gui 简化版）
 
 - **任务**：T27–T31（nativeization-plan music-mode + equalizer-gui 简化版；分支 `feat/p7-music-mode`，一个功能一个 commit）
 - **产出**：
