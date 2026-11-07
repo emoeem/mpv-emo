@@ -8,6 +8,7 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlExpression>
 #include <QQuickStyle>
 
 #include "music/MusicController.h"
@@ -63,6 +64,9 @@ void TestMusicPage::pageInstantiates()
                      QStringLiteral(EMOPLAY_SOURCE_DIR "/qml/MusicPage.qml")));
     std::unique_ptr<QObject> page(component.create());
     QVERIFY2(page, qPrintable(component.errorString()));
+    // A non-null create() can still carry errors; surface them either way.
+    QVERIFY2(component.errors().isEmpty(),
+             qPrintable(component.errorString()));
     QVERIFY2(qmlMessages.isEmpty(),
              qPrintable(qmlMessages.join(u"\n"_s)));
 
@@ -71,16 +75,53 @@ void TestMusicPage::pageInstantiates()
     // lossy for object references).
     int sliderCount = 0;
     QStringList childTypes;
+    QObject *repeater = nullptr;
     const QList<QObject *> children = page->findChildren<QObject *>();
     for (const QObject *child : children) {
         childTypes.append(QString::fromLatin1(child->metaObject()->className()));
+        if (!repeater && child->inherits("QQuickRepeater"))
+            repeater = child;
         if (child->inherits("QQuickSlider"))
             ++sliderCount;
     }
-    if (sliderCount != controller.bandCount())
+    if (sliderCount != controller.bandCount()) {
         qWarning().nospace().noquote()
             << "instantiated item tree (" << childTypes.size()
             << " children): " << childTypes.join(u", "_s);
+        if (repeater)
+            qWarning() << "repeater model:" << repeater->property("model")
+                       << "count:" << repeater->property("count");
+        // What QML itself sees for the context property and its reads.
+        for (const QString &expression :
+             {u"typeof musicController"_s, u"musicController"_s,
+              u"musicController.bandCount"_s,
+              u"musicController.equalizerGains.length"_s}) {
+            QVariant value;
+            QString error;
+            QQmlExpression(engine.rootContext(), page.get(), expression)
+                .evaluate(&value, &error);
+            qWarning().nospace().noquote()
+                << "qml expr '" << expression << "' -> " << value
+                << (error.isEmpty() ? QString() : u" [error: " + error + u"]"_s);
+        }
+        // Bisect: does a minimal Repeater create items on this runner?
+        QQmlComponent probeComponent(&engine);
+        probeComponent.setData(
+            "import QtQuick\nimport QtQuick.Controls\n"
+            "Item { Repeater { model: 3; delegate: Item { objectName: "
+            "\"probe\" + index } } }",
+            QUrl(QStringLiteral("qrc:/probe.qml")));
+        std::unique_ptr<QObject> probe(probeComponent.create());
+        int probeCount = -1;
+        if (probe) {
+            for (const QObject *child : probe->findChildren<QObject *>())
+                if (child->inherits("QQuickRepeater"))
+                    probeCount = child->property("count").toInt();
+        }
+        qWarning() << "minimal repeater probe: created ="
+                   << (probe != nullptr) << "count =" << probeCount
+                   << "errors:" << probeComponent.errorString();
+    }
     QCOMPARE(sliderCount, controller.bandCount());
 
     // Collapsed by default; exposing it again must not error out.
