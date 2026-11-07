@@ -6,14 +6,14 @@ import QtQuick.Layouts
 // the built-in manager.json-compatible catalog (uosc, uosc_danmaku, Anime4K,
 // file_browser, hdr-toys, trakt_scrobble).
 //
-// Every changing operation shows its change list in a confirmation dialog
-// before it runs — PluginManager does nothing without that consent. Check-mode
-// plugins ("本地定制永不覆盖"): updates only compare the remote HEAD with the
-// manifest baseline via git ls-remote; local customizations are never
-// overwritten. Replace-mode updates re-clone and swap, but are refused when
-// local modifications are detected. Enabling a plugin appends its path to the
-// scripts option assembled at startup (P4 compat layer values are preserved)
-// and takes effect on the next launch.
+// Install / update / uninstall show their change list in a confirmation
+// dialog before they run — PluginManager does nothing without that consent.
+// The enable/disable switch is non-destructive and reversible (the scripts
+// option is only assembled at the next launch), so it applies immediately.
+// Check-mode plugins ("本地定制永不覆盖"): updates only compare the remote
+// HEAD with the manifest baseline via git ls-remote; local customizations
+// are never overwritten. Replace-mode updates re-clone and swap, but are
+// refused when local modifications are detected.
 Drawer {
     id: pluginDrawer
 
@@ -26,6 +26,14 @@ Drawer {
     property var pendingPlan: null
 
     function beginOperation(name, action) {
+        // Enable/disable applies immediately: it is non-destructive and
+        // reversible, and planOperation only plans the three destructive
+        // actions (an enable/disable plan would be refused as an unknown
+        // action, leaving the switch stuck on the model value).
+        if (action === "enable" || action === "disable") {
+            pluginManager.setEnabled(name, action === "enable")
+            return
+        }
         var plan = pluginManager.planOperation(name, action)
         if (plan.error !== undefined) {
             statusLabel.text = plan.error
@@ -46,10 +54,6 @@ Drawer {
             pluginManager.uninstall(name)
         else if (action === "update")
             pluginManager.update(name)
-        else if (action === "enable")
-            pluginManager.setEnabled(name, true)
-        else if (action === "disable")
-            pluginManager.setEnabled(name, false)
         pendingPlan = null
     }
 
@@ -238,8 +242,9 @@ Drawer {
                             checked: modelData.enabled
                             enabled: modelData.installed && !pluginManager.busy
                             onToggled: {
-                                // Reflect the model, not the flip: the change
-                                // only happens after confirmation.
+                                // Reflect the model, not the flip: the action
+                                // is derived from the re-asserted model value,
+                                // and setEnabled + changed() update the entry.
                                 enableSwitch.checked = Qt.binding(function () {
                                     return modelData.enabled
                                 })
