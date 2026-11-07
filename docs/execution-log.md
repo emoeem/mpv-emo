@@ -192,3 +192,18 @@
 - **评审修复（批次 8 复核，两条均核实成立后修复）**：
   1. **在生成中路径漏去重**（requestThumbnail 守卫只有 m_queue/m_failed/m_ready）：链路进行中路径已出队，LibraryModel 每次 rebuild 重发可见请求会重新入队，首链结束后对同一缓存键重跑两个 ffmpeg 子进程并重复 thumbnailReady/dataChanged → 守卫追加 `path == m_jobPath`；测试 `requestThumbnailIsNotRequeuedWhileInFlight`（stub 时长探测 sleep 1 s 开窗，重复请求后日志仍止于 3 行、ready 仍 1 次）。
   2. **析构期 kill()+waitForFinished() 重入回调**：waitForFinished 派发被杀子进程的 finished/errorOccurred，身份守卫拦不住（被杀子进程仍是 m_jobProcess）——DurationProbe 阶段推进 startGeneration、Generate 阶段 finishJob→pump 孵化新子进程，随后被 QObject 清理强杀 → 新增 teardownProcess()（先 disconnect 再 kill+waitForFinished，job 与 probe 两侧同样处理）；测试 `destructorDoesNotHatchChildrenForQueuedWork`（带排队项销毁服务，日志止于 2 行、无缓存文件产生）。stub 增加时长探测段 sleep 参数支撑两测。
+## 2026-11-07 · 批次 8：P9 更新器 + CPack + P10 测试文档（feat/p9v2-update）
+
+- **任务**：UpdateChecker（GitHub releases 检查 + QML 角标，绝不自动下载安装）、CPack DEB/RPM 最小配置、tools/benchmark.sh 基准框架、docs/testing-report.md、CHANGELOG.md、UpdateChecker 单测（headless，不发真实请求）
+- **产出**：
+  - `src/update/UpdateChecker.{h,cpp}`：每次启动一次 `GET api.github.com/repos/emoeem/mpv-emo/releases/latest`（QNetworkAccessManager；User-Agent `EmoPlay/<ver> (+repo)` 必设、`Accept: application/vnd.github+json`、15s `setTransferTimeout` 防挂死）；`tagToVersion`（剥 v/V 前缀、仅当后随数字）/`compareVersions`（数值逐段、缺失段=0、release 胜同号预发布、alpha<beta<rc、rc.2>rc.1、未知后缀确定性排序）/`isNewer` 纯逻辑；命中仅上报 `updateAvailable(version,url)` + hasUpdate/latestVersion/releaseUrl 属性（html_url 缺失回退 `/releases/tag/<tag>`）；一切失败只发 `checkFinished`（供测试等待静默路径）；in-flight 去重；apiBase 可注入供回环测试
+  - `qml/UpdateBadge.qml`（独立文件，UI 约定）：绑定 updateChecker.hasUpdate，命中才显示，点击 `Qt.openUrlExternally(releaseUrl)`；Main.qml 仅加一个实例（控制栏图标区）；main.cpp 构造 + 3s singleShot check + 上下文属性（声明于 view 之前，销毁顺序契约）
+  - CMakeLists：find_package 增 `Network`、emo_core 增源码与 `Qt6::Network` 链接、qml 资源增 UpdateBadge.qml；尾部 CPack 块（包名 emoplay、DEB section/shlibdeps OFF、RPM MIT/group、GENERATOR "DEB;RPM"、注明 minimal——无完整依赖列表，正式 Linux 分发仍走 release.yml AppImage）
+  - `tools/benchmark.sh`：检测系统 ffmpeg/mpv → lavfi 生成 testsrc2 序列（SD/HD30/HD60/UHD，libx264 veryfast）→ 软解码计时（ffmpeg `-f null` / mpv `--vo=null --ao=null --hwdec=no --untimed`，3 轮取最优墙钟，date +%s%N 不可用回退 python3）→ 输出 `benchmark-results.md` 表格框架供 testing-report §2.4 引用；无工具时明确跳过并输出待填框架（退出码 0）；生成失败改名为 *.failed 跳过
+  - `docs/testing-report.md`：自动化 17 套件总览（对象/类型/作用，与 tests/CMakeLists.txt 一一对应）+ 自动化盲区清单 + 实机手工矩阵模板（环境定义表 × 17 项功能 × 结果取值约定 × 性能小节落表位 × 缺陷登记）
+  - `CHANGELOG.md`：0.1.0-alpha（已发布）/ 0.2.0-beta（未发布）/ 计划中 v1.0-rc 三节，从 execution-log 提炼
+- **测试设计**：`tests/test_update_checker.cpp` 纯逻辑（tag 解析、版本比较表、isNewer、URL 组装含尾斜杠裁剪）+ **127.0.0.1 回环 HTTP 服务**（QTcpServer 罐头响应：找到新版断言信号/属性/User-Agent/端点路径；html_url 缺失回退；同版本/404/坏 JSON 静默；hold-open 验证 in-flight 去重只发一次请求）——不发真实请求、不依赖外网；initTestCase 强制 `QNetworkProxy::NoProxy` 防环境代理劫持回环
+- **本地验证**（无编译工具链，脚本类实测）：`bash -n` 语法通过；benchmark.sh 三路径实测——无工具跳过路径、（桩 ffmpeg/mpv）计时路径、生成失败路径均符合预期（桩数字非真实解码，真实跑分待实体机）；UpdateChecker C++ 与单测待 CI
+- **涉及 commit**：`19059ce` feat(update)、`8ea1b94` feat(ui)、`56834d5` build(cpack)、`fd587b4` feat(tools)、`1e43c68` docs(testing)、`29fc48d` docs(changelog) + 本 docs 提交
+- **CI 结论**：待回填（PR 创建后以 `env -u GH_TOKEN gh run` 实查 ctest 计数与冒烟结果补记）
+- **风险与待验证**：无本地编译，UpdateChecker/UpdateBadge 的编译与 QML 绑定由 CI 验证；无认证 GitHub API 限速 60 req/h（每启动一次远低于限速，但限速/离线时角标静默不出现属预期）；CPack DEB/RPM 依赖完备性未验证（按 minimal 定位）；benchmark.sh 仅 Linux 验证；角标点击行为与 release 页打开待实机验证
