@@ -96,8 +96,9 @@ public:
     // no-op.
     Q_INVOKABLE void removeDirectory(const QString &pathOrUrl);
 
-    // Scan the folder list on the worker thread. Ignored while a scan is
-    // already running. Results arrive through entriesChanged().
+    // Scan the folder list on the worker thread. While a scan runs the
+    // request is remembered and chained after it (adding several folders in
+    // a row must not lose scans). Results arrive through entriesChanged().
     Q_INVOKABLE void requestScan();
 
     // Stamp the entry for |path| as played now and persist. Unknown paths
@@ -133,6 +134,7 @@ private slots:
     void onScanProgress(int fileCount);
 
 private:
+    void startScan();
     void load();
     void save();
 
@@ -142,6 +144,7 @@ private:
     ScanOptions m_scanOptions;
 
     bool m_scanning = false;
+    bool m_scanPending = false;
     int m_scanFileCount = 0;
 
     // Scan worker plumbing: one persistent worker thread for the store's

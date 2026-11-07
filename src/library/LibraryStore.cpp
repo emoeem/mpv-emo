@@ -145,9 +145,17 @@ void LibraryStore::removeDirectory(const QString &pathOrUrl)
 
 void LibraryStore::requestScan()
 {
-    if (m_scanning)
+    if (m_scanning) {
+        // A scan is in flight; chain this request instead of dropping it,
+        // so adding several folders in a row scans them all.
+        m_scanPending = true;
         return;
+    }
+    startScan();
+}
 
+void LibraryStore::startScan()
+{
     m_scanning = true;
     emit scanningChanged();
 
@@ -157,7 +165,8 @@ void LibraryStore::requestScan()
 
     // Hand the request to the worker thread through its event loop. A new
     // request can only be posted once m_scanning cleared again in
-    // applyScanResults, so the worker processes at most one scan at a time.
+    // applyScanResults (or chained there), so the worker processes at most
+    // one scan at a time.
     QMetaObject::invokeMethod(m_scanWorker, "beginScan",
                               Qt::QueuedConnection,
                               Q_ARG(QStringList, m_directories),
@@ -299,10 +308,20 @@ void LibraryStore::applyScanResults(const QList<LibraryEntry> &entries)
             entry.lastPlayed = played;
     }
 
-    m_scanning = false;
-    emit scanningChanged();
     emit entriesChanged();
     save();
+
+    // A request that arrived mid-scan runs right after this one (the worker
+    // is idle again once finished() was emitted); scanning stays true until
+    // the chained scan completes.
+    if (m_scanPending) {
+        m_scanPending = false;
+        startScan();
+        return;
+    }
+
+    m_scanning = false;
+    emit scanningChanged();
 }
 
 void LibraryStore::load()
