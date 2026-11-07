@@ -114,8 +114,11 @@ int MusicController::lyricIndexAt(const QVector<LrcLine> &lines,
 {
     int index = -1;
     for (int i = 0; i < lines.size(); ++i) {
-        // Epsilon: exact hits like lines[i].time == seconds must count.
-        if (lines[i].time <= seconds + 0.000001)
+        // Tiny epsilon so exact hits still count after double rounding
+        // (a parsed ".33" and mpv's time-pos can differ in the last bits).
+        // It must stay far below the 1 ms .lrc granularity: 4.999999 s
+        // (one microsecond before a 5 s line) is not "at" the line.
+        if (lines[i].time <= seconds + 0.000000001)
             index = i;
         else
             break; // sorted by time; nothing later can match either
