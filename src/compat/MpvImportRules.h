@@ -50,6 +50,14 @@ public:
     // Options dropped from user config (replaced or removed by the engine).
     static const QStringList &strippedKeys();
 
+    // Redirect target for a write-path option, e.g. "icc-cache-dir" ->
+    // "|appDataDir|/icc_cache". Empty string when the option is not a
+    // redirect target (unknown keys and read paths like icc-profile).
+    // Single source of truth for the P4 startup redirects (apply()) and
+    // the P5 runtime redirects (IccController), so both layers always
+    // agree on the sub-directory names.
+    static QString redirectTarget(const QString &key, const QString &appDataDir);
+
     // |mpvDir| is the user's mpv config directory (for audit messages),
     // |appDataDir| EmoPlay's writable app data directory receiving redirected
     // write paths. appDataDir must be non-empty.

@@ -24,6 +24,7 @@ private slots:
     void plainScreenshotTemplateKept();
     void configRelativeShaderValuesKept();
     void forcedAndStrippedKeyLists();
+    void redirectTargetSharesTheStartupTable();
 
 private:
     static QVector<MpvConfEntry> parse(const QString &text)
@@ -211,6 +212,35 @@ void TestImportRules::forcedAndStrippedKeyLists()
     // Forced keys are not stripped keys: they are replaced, not removed.
     for (const QString &key : forced)
         QVERIFY(!stripped.contains(key));
+}
+
+void TestImportRules::redirectTargetSharesTheStartupTable()
+{
+    // The P5 runtime layers (IccController) reuse the same redirect table
+    // as the P4 startup pass, so both always agree on sub-directory names.
+    QTemporaryDir appData;
+    QVERIFY(appData.isValid());
+
+    // The ICC cache is a write path: redirected to app data.
+    QCOMPARE(MpvImportRules::redirectTarget(u"icc-cache-dir"_s,
+                                            appData.path()),
+             appData.path() + u"/icc_cache"_s);
+    // The other write paths agree with the startup redirects.
+    QCOMPARE(MpvImportRules::redirectTarget(u"watch-later-dir"_s,
+                                            appData.path()),
+             appData.path() + u"/watch_later"_s);
+    QCOMPARE(MpvImportRules::redirectTarget(u"demuxer-cache-dir"_s,
+                                            appData.path()),
+             appData.path() + u"/demuxer_cache"_s);
+
+    // Read paths (icc-profile keeps its user value, see
+    // configRelativeShaderValuesKept) and unknown keys are not targets.
+    QVERIFY(MpvImportRules::redirectTarget(u"icc-profile"_s,
+                                           appData.path())
+                .isEmpty());
+    QVERIFY(MpvImportRules::redirectTarget(u"volume"_s,
+                                           appData.path())
+                .isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestImportRules)
