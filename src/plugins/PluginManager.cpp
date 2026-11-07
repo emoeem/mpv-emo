@@ -531,9 +531,8 @@ void PluginManager::runStep()
                                    : m_stagingDir;
         if (m_action != Action::Install) {
             // Remove a leftover staging directory from a crashed run.
-            QDir root(m_pluginsRoot);
-            if (root.exists(m_stagingDir))
-                root.removeRecursively(m_stagingDir);
+            if (QFileInfo::exists(m_stagingDir))
+                QDir(m_stagingDir).removeRecursively();
         }
         m_git->run(QStringList{QStringLiteral("clone"), QStringLiteral("--depth"),
                                QStringLiteral("1"), QStringLiteral("--branch"),
@@ -571,10 +570,9 @@ void PluginManager::onGitFinished(const QStringList &arguments,
     switch (m_step) {
     case Step::Clone: {
         if (!result.started || result.exitCode != 0) {
-            if (m_action != Action::Install) {
-                QDir root(m_pluginsRoot);
-                if (root.exists(m_stagingDir))
-                    root.removeRecursively(m_stagingDir);
+            if (m_action != Action::Install
+                && QFileInfo::exists(m_stagingDir)) {
+                QDir(m_stagingDir).removeRecursively();
             }
             fail(QStringLiteral("git clone failed: %1")
                      .arg(result.standardError.trimmed()));
@@ -703,7 +701,9 @@ void PluginManager::performSwap()
     const QString oldHead = m_state.value(m_currentName).head;
 
     // Keep exactly one generation of backups.
-    if (root.exists(backup) && !root.removeRecursively(backup)) {
+    // (QDir::removeRecursively(const QString &) only exists from Qt 6.5; the
+    // supported Qt 6.4 has the zero-argument overload only.)
+    if (QFileInfo::exists(backup) && !QDir(backup).removeRecursively()) {
         fail(QStringLiteral("cannot remove the old backup %1").arg(backup));
         return;
     }
