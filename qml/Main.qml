@@ -68,51 +68,41 @@ ApplicationWindow {
     minimumHeight: 540
     visible: true
     title: mpvItem.mediaTitle.length > 0 ? mpvItem.mediaTitle : qsTr("EmoPlay")
-    color: "#0d0d11"
+    color: Theme.bg0
 
-    palette.window: "#0d0d11"
-    palette.windowText: "#e8e8ee"
-    palette.base: "#17171d"
-    palette.button: "#22222b"
-    palette.buttonText: "#e8e8ee"
-    palette.text: "#e8e8ee"
-    palette.highlight: "#4f8cff"
-    palette.highlightedText: "#ffffff"
+    palette.window: Theme.bg0
+    palette.windowText: Theme.fg
+    palette.base: Theme.bg2
+    palette.button: Theme.bg2
+    palette.buttonText: Theme.fg
+    palette.text: Theme.fg
+    palette.highlight: Theme.accent
+    palette.highlightedText: "#191a21"
+    palette.toolTipBase: Theme.bg3
+    palette.toolTipText: Theme.fg
 
     component IconButton: Button {
         id: iconButton
         property string glyph: ""
+        property real iconSize: 20
+        implicitWidth: 40
+        implicitHeight: 40
         flat: true
         hoverEnabled: true
-        leftPadding: 10
-        rightPadding: 10
-        contentItem: Text {
-            text: iconButton.glyph
-            font.pixelSize: 16
-            color: iconButton.hovered ? "#ffffff" : "#cfcfd8"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+        contentItem: AppIcon {
+            anchors.centerIn: parent
+            name: iconButton.glyph
+            size: iconButton.iconSize
+            color: iconButton.hovered ? Theme.fg : Theme.fgDim
         }
         background: Rectangle {
-            radius: 6
-            color: iconButton.hovered ? "#33333f" : "transparent"
+            radius: Theme.radiusS
+            color: iconButton.pressed ? Theme.bg3
+                 : (iconButton.hovered ? Theme.bg2 : "transparent")
+            Behavior on color { ColorAnimation { duration: Theme.animFast } }
         }
         ToolTip.visible: hovered && ToolTip.text.length > 0
         ToolTip.delay: 600
-    }
-
-    component FullscreenIcon: Item {
-        implicitWidth: 16
-        implicitHeight: 16
-        property color ink: "#cfcfd8"
-        Rectangle { x: 0; y: 0; width: 7; height: 2; color: ink }
-        Rectangle { x: 0; y: 0; width: 2; height: 7; color: ink }
-        Rectangle { x: 9; y: 0; width: 7; height: 2; color: ink }
-        Rectangle { x: 14; y: 0; width: 2; height: 7; color: ink }
-        Rectangle { x: 0; y: 14; width: 7; height: 2; color: ink }
-        Rectangle { x: 0; y: 9; width: 2; height: 7; color: ink }
-        Rectangle { x: 9; y: 14; width: 7; height: 2; color: ink }
-        Rectangle { x: 14; y: 9; width: 2; height: 7; color: ink }
     }
 
     // Quality drawers share one combo shape (label/value pairs backed by
@@ -121,6 +111,14 @@ ApplicationWindow {
         textRole: "label"
         valueRole: "value"
         Layout.fillWidth: true
+    }
+
+    // Section header inside drawers.
+    component SectionHeader: Label {
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        font.letterSpacing: 0.8
+        color: Theme.muted
     }
 
     function selectQualityValue(combo, value) {
@@ -169,60 +167,105 @@ ApplicationWindow {
         Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
     }
 
-    // Center pause indicator (pure shapes, no font dependency).
-    Row {
+    // Center pause indicator: soft accent glow behind two bars.
+    Item {
         anchors.centerIn: parent
-        spacing: 12
-        opacity: (mpvItem.paused && !mpvItem.idle) ? 0.28 : 0
+        opacity: (mpvItem.paused && !mpvItem.idle) ? 1 : 0
         visible: opacity > 0
-        Repeater {
-            model: 2
-            Rectangle { width: 16; height: 58; radius: 3; color: "#ffffff" }
+        scale: mpvItem.paused ? 1 : 0.8
+
+        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+        Behavior on scale { NumberAnimation {
+            duration: Theme.animNormal; easing.type: Easing.OutBack } }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 132
+            height: 132
+            radius: Theme.radiusL
+            color: "#b3191a21"
+            border.color: Theme.border
         }
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Row {
+            anchors.centerIn: parent
+            spacing: 14
+            Repeater {
+                model: 2
+                Rectangle { width: 14; height: 52; radius: 4; color: Theme.accent }
+            }
+        }
     }
 
-    // Idle state hint.
+    // Idle state hint: wordmark + hint + recently played card.
     Column {
         anchors.centerIn: parent
-        spacing: 10
+        spacing: 14
         visible: mpvItem.idle
-        Text {
+
+        Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: qsTr("EmoPlay")
-            font.pixelSize: 40
-            font.weight: Font.DemiBold
-            color: "#e8e8ee"
+            spacing: 0
+            Text {
+                text: qsTr("Emo")
+                font.pixelSize: 44
+                font.weight: Font.Bold
+                font.letterSpacing: 1
+                color: Theme.fg
+            }
+            Text {
+                text: qsTr("Play")
+                font.pixelSize: 44
+                font.weight: Font.Bold
+                font.letterSpacing: 1
+                color: Theme.accent
+            }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: qsTr("Open a file to start playback  (O)")
-            color: "#8a8a96"
+            color: Theme.muted
+            font.pixelSize: 13
         }
 
         // Recently played, persisted by HistoryStore; click to replay.
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            visible: historyStore.entries.length > 0
-            text: qsTr("Recently played")
-            font.weight: Font.DemiBold
-            color: "#cfcfd8"
-        }
-        ListView {
-            id: historyList
+        Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: historyStore.entries.length > 0
             width: Math.min(root.width * 0.6, 560)
-            height: Math.min(contentHeight, 180)
-            clip: true
-            model: historyStore.entries
-            delegate: ItemDelegate {
-                width: ListView.view.width
-                text: (modelData.title && modelData.title.length > 0)
-                      ? modelData.title : modelData.path
-                onClicked: mpvEngine.loadFile(modelData.path)
+            height: recentsColumn.implicitHeight + 24
+            radius: Theme.radiusM
+            color: Theme.bg1
+            border.color: Theme.border
+
+            Column {
+                id: recentsColumn
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 2
+
+                Text {
+                    text: qsTr("Recently played")
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.8
+                    color: Theme.muted
+                }
+                ListView {
+                    id: historyList
+                    width: parent.width
+                    height: Math.min(contentHeight, 168)
+                    clip: true
+                    model: historyStore.entries
+                    delegate: ItemDelegate {
+                        width: ListView.view.width
+                        highlighted: false
+                        text: (modelData.title && modelData.title.length > 0)
+                              ? modelData.title : modelData.path
+                        onClicked: mpvEngine.loadFile(modelData.path)
+                    }
+                    ScrollIndicator.vertical: ScrollIndicator {}
+                }
             }
-            ScrollIndicator.vertical: ScrollIndicator {}
         }
     }
 
@@ -237,22 +280,37 @@ ApplicationWindow {
         onLoaded: item.mpvItem = mpvItem
     }
 
-    // Bottom control bar; auto-hides during playback when the mouse is idle.
-    Rectangle {
+    // Floating pill control bar: layered soft shadow behind a translucent
+    // rounded surface; auto-hides during playback when the mouse is idle.
+    Item {
         id: controls
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        height: 96
-        color: "#d014141a"
+        anchors.bottomMargin: Theme.barMargin
+        width: Math.min(parent.width - 40, 1080)
+        height: Theme.barHeight
         opacity: 1
 
-        Behavior on opacity { NumberAnimation { duration: 250 } }
+        Behavior on opacity { NumberAnimation { duration: Theme.animSlow } }
 
         HoverHandler { id: controlsHover }
 
         // Forward keys not consumed by the sliders/buttons themselves.
         Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
+
+        // Layered fake shadow (three stacked rounded rects).
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -6
+            radius: Theme.radiusL + 6
+            color: "#14000000"
+        }
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -3
+            radius: Theme.radiusL + 3
+            color: "#22000000"
+        }
 
         // Consume clicks on the bar so they do not reach the video MouseArea.
         MouseArea {
@@ -260,118 +318,146 @@ ApplicationWindow {
             onClicked: function (mouse) { mouse.accepted = true }
         }
 
-        ColumnLayout {
+        Rectangle {
             anchors.fill: parent
-            anchors.leftMargin: 14
-            anchors.rightMargin: 14
-            anchors.topMargin: 8
-            anchors.bottomMargin: 10
-            spacing: 2
+            radius: Theme.radiusL
+            color: Theme.barTint
+            border.color: Theme.border
+            border.width: 1
 
-            Label {
-                text: root.formatTime(root.currentTime)
-                      + " / " + root.formatTime(mpvItem.duration)
-                color: "#cfcfd8"
-                font.pixelSize: 12
-            }
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 18
+                anchors.rightMargin: 18
+                anchors.topMargin: 8
+                anchors.bottomMargin: 10
+                spacing: 0
 
-            Slider {
-                id: seekSlider
-                Layout.fillWidth: true
+                PillSlider {
+                    id: seekSlider
+                    Layout.fillWidth: true
 
-                property bool userSeeking: false
+                    property bool userSeeking: false
 
-                from: 0
-                to: mpvItem.duration > 0 ? mpvItem.duration : 1
-                enabled: mpvItem.duration > 0
+                    from: 0
+                    to: mpvItem.duration > 0 ? mpvItem.duration : 1
+                    enabled: mpvItem.duration > 0
 
-                onPressedChanged: {
-                    if (pressed) {
-                        userSeeking = true
-                    } else {
-                        userSeeking = false
-                        if (mpvItem.duration > 0)
-                            mpvItem.seek(seekSlider.value)
+                    onPressedChanged: {
+                        if (pressed) {
+                            userSeeking = true
+                        } else {
+                            userSeeking = false
+                            if (mpvItem.duration > 0)
+                                mpvItem.seek(seekSlider.value)
+                        }
                     }
                 }
-            }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
 
-                Button {
-                    text: qsTr("Open")
-                    flat: true
-                    onClicked: fileDialog.open()
-                }
-                IconButton {
-                    glyph: mpvItem.paused ? "\u25B6" : "\u25AE\u25AE"
-                    ToolTip.text: mpvItem.paused ? qsTr("Play") : qsTr("Pause")
-                    onClicked: mpvItem.togglePlayPause()
-                }
-                IconButton {
-                    glyph: "\u25A0"
-                    ToolTip.text: qsTr("Stop")
-                    onClicked: mpvItem.stop()
-                }
-                Item { Layout.fillWidth: true }
+                    IconButton {
+                        glyph: "folder"
+                        iconSize: 18
+                        ToolTip.text: qsTr("Open")
+                        onClicked: fileDialog.open()
+                    }
+                    Label {
+                        text: root.formatTime(root.currentTime)
+                        color: Theme.fg
+                        font.pixelSize: 12
+                        font.family: "monospace"
+                        Layout.preferredWidth: 52
+                        horizontalAlignment: Text.AlignRight
+                    }
+                    Label {
+                        text: "/"
+                        color: Theme.muted
+                        font.pixelSize: 12
+                    }
+                    Label {
+                        text: root.formatTime(mpvItem.duration)
+                        color: Theme.muted
+                        font.pixelSize: 12
+                        font.family: "monospace"
+                        Layout.preferredWidth: 52
+                    }
 
-                IconButton {
-                    glyph: "\u2630"
-                    ToolTip.text: qsTr("Playlist")
-                    onClicked: playlistDrawer.opened ? playlistDrawer.close()
-                                                     : playlistDrawer.open()
-                }
-                IconButton {
-                    // Gear, not a note: the mute button next to it uses
-                    // "\u266A" and note glyphs are too easy to mix up.
-                    glyph: "\u2699"
-                    ToolTip.text: qsTr("Tracks")
-                    onClicked: tracksDrawer.opened ? tracksDrawer.close()
-                                                   : tracksDrawer.open()
-                }
-                IconButton {
-                    // Four-pointed star next to the gear: image quality.
-                    glyph: "\u2726"
-                    ToolTip.text: qsTr("Quality")
-                    onClicked: qualityDrawer.opened ? qualityDrawer.close()
-                                                    : qualityDrawer.open()
-                }
-                IconButton {
-                    glyph: "\u25A4"
-                    ToolTip.text: qsTr("Library")
-                    onClicked: libraryDrawer.opened ? libraryDrawer.close()
-                                                    : libraryDrawer.open()
-                }
-                IconButton {
-                    // Grid of squares next to the quality star: P8 plugins.
-                    glyph: "\u25A6"
-                    ToolTip.text: qsTr("Plugins")
-                    onClicked: pluginDrawer.opened ? pluginDrawer.close()
-                                                   : pluginDrawer.open()
-                }
-                // P9 update badge; hidden unless updateChecker confirmed a
-                // newer release (all visuals live in qml/UpdateBadge.qml).
-                UpdateBadge {
-                }
-                IconButton {
-                    glyph: "\u266A"
-                    opacity: mpvItem.muted ? 0.4 : 1
-                    ToolTip.text: qsTr("Mute")
-                    onClicked: mpvItem.muted = !mpvItem.muted
-                }
-                Slider {
-                    id: volumeSlider
-                    from: 0
-                    to: 100
-                    implicitWidth: 120
-                    onMoved: mpvItem.volume = value
-                }
-                IconButton {
-                    contentItem: FullscreenIcon { ink: "#cfcfd8" }
-                    ToolTip.text: qsTr("Fullscreen")
-                    onClicked: root.toggleFullscreen()
+                    AccentButton {
+                        glyph: (mpvItem.paused || mpvItem.idle) ? "play" : "pause"
+                        diameter: 44
+                        ToolTip.text: mpvItem.paused ? qsTr("Play") : qsTr("Pause")
+                        onClicked: mpvItem.togglePlayPause()
+                    }
+                    IconButton {
+                        glyph: "stop"
+                        ToolTip.text: qsTr("Stop")
+                        onClicked: mpvItem.stop()
+                    }
+                    IconButton {
+                        glyph: "prev"
+                        ToolTip.text: qsTr("Previous")
+                        onClicked: mpvItem.playlistPrev()
+                    }
+                    IconButton {
+                        glyph: "next"
+                        ToolTip.text: qsTr("Next")
+                        onClicked: mpvItem.playlistNext()
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    IconButton {
+                        glyph: "list"
+                        ToolTip.text: qsTr("Playlist")
+                        onClicked: playlistDrawer.opened ? playlistDrawer.close()
+                                                         : playlistDrawer.open()
+                    }
+                    IconButton {
+                        glyph: "subtitles"
+                        ToolTip.text: qsTr("Tracks")
+                        onClicked: tracksDrawer.opened ? tracksDrawer.close()
+                                                       : tracksDrawer.open()
+                    }
+                    IconButton {
+                        glyph: "quality"
+                        ToolTip.text: qsTr("Quality")
+                        onClicked: qualityDrawer.opened ? qualityDrawer.close()
+                                                        : qualityDrawer.open()
+                    }
+                    IconButton {
+                        glyph: "library"
+                        ToolTip.text: qsTr("Library")
+                        onClicked: libraryDrawer.opened ? libraryDrawer.close()
+                                                        : libraryDrawer.open()
+                    }
+                    IconButton {
+                        glyph: "plugins"
+                        ToolTip.text: qsTr("Plugins")
+                        onClicked: pluginDrawer.opened ? pluginDrawer.close()
+                                                       : pluginDrawer.open()
+                    }
+                    UpdateBadge {
+                    }
+                    IconButton {
+                        glyph: mpvItem.muted ? "mute" : "volume"
+                        ToolTip.text: qsTr("Mute")
+                        onClicked: mpvItem.muted = !mpvItem.muted
+                    }
+                    PillSlider {
+                        id: volumeSlider
+                        from: 0
+                        to: 100
+                        implicitWidth: 96
+                        onMoved: mpvItem.volume = value
+                    }
+                    IconButton {
+                        glyph: root.isFullscreen ? "fullscreenExit" : "fullscreen"
+                        ToolTip.text: qsTr("Fullscreen")
+                        onClicked: root.toggleFullscreen()
+                    }
                 }
             }
         }
@@ -449,18 +535,21 @@ ApplicationWindow {
         id: tracksDrawer
         edge: Qt.RightEdge
         width: Math.min(root.width * 0.38, 380)
+        background: Rectangle { color: Theme.bg1 }
         onClosed: compatKeys.forceActiveFocus()
         Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 14
+            anchors.margins: 16
             spacing: 4
 
             Label {
                 text: qsTr("Audio tracks")
+                font.pixelSize: 12
                 font.weight: Font.DemiBold
-                color: "#cfcfd8"
+                font.letterSpacing: 0.8
+                color: Theme.muted
             }
             Column {
                 Layout.fillWidth: true
@@ -483,10 +572,8 @@ ApplicationWindow {
                 }
             }
 
-            Label {
+            SectionHeader {
                 text: qsTr("Subtitles")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
             }
             Column {
                 Layout.fillWidth: true
@@ -539,6 +626,7 @@ ApplicationWindow {
         id: qualityDrawer
         edge: Qt.RightEdge
         width: Math.min(root.width * 0.46, 460)
+        background: Rectangle { color: Theme.bg1 }
         onOpened: root.syncQualityControls()
         onClosed: compatKeys.forceActiveFocus()
         Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
@@ -550,29 +638,27 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 14
+            anchors.margins: 16
             spacing: 8
 
             Label {
                 text: qsTr("Quality")
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
-                color: "#e8e8ee"
+                color: Theme.fg
             }
 
             Label {
                 Layout.fillWidth: true
                 visible: qualityController.autoDowngraded
                 text: qsTr("Auto-downgraded to Low: dropped frames detected")
-                color: "#ffb454"
+                color: Theme.orange
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
             }
 
-            Label {
-                text: qsTr("Content type")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("Content type").toUpperCase()
             }
             QualityCombo {
                 id: contentModeCombo
@@ -586,10 +672,8 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                text: qsTr("Quality tier")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("Quality tier").toUpperCase()
             }
             QualityCombo {
                 id: tierCombo
@@ -604,10 +688,8 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                text: qsTr("Scaling algorithm")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("Scaling algorithm").toUpperCase()
             }
             QualityCombo {
                 id: scaleCombo
@@ -622,10 +704,8 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                text: qsTr("Deband")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("Deband").toUpperCase()
             }
             QualityCombo {
                 id: debandCombo
@@ -639,10 +719,8 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                text: qsTr("HDR tone-mapping")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("HDR tone-mapping").toUpperCase()
             }
             QualityCombo {
                 id: toneMappingCombo
@@ -661,7 +739,7 @@ ApplicationWindow {
                 text: qsTr("For HDR sources; shaders are not mounted while "
                            + "HDR tone-mapping is active. spline / bt.2446a "
                            + "require gpu-next and are unavailable here.")
-                color: "#8a8a96"
+                color: Theme.muted
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
             }
@@ -675,15 +753,13 @@ ApplicationWindow {
                 Layout.fillWidth: true
             }
 
-            Label {
-                text: qsTr("Shaders")
-                font.weight: Font.DemiBold
-                color: "#cfcfd8"
+            SectionHeader {
+                text: qsTr("Shaders").toUpperCase()
             }
             Label {
                 Layout.fillWidth: true
                 text: qualityController.shadersDir
-                color: "#8a8a96"
+                color: Theme.muted
                 font.pixelSize: 11
                 elide: Text.ElideMiddle
             }
@@ -726,7 +802,7 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     visible: shaderList.count === 0
                     text: qsTr("No .glsl files found in the shaders directory")
-                    color: "#8a8a96"
+                    color: Theme.muted
                 }
             }
         }
@@ -748,18 +824,20 @@ ApplicationWindow {
         id: playlistDrawer
         edge: Qt.RightEdge
         width: Math.min(root.width * 0.42, 440)
+        background: Rectangle { color: Theme.bg1 }
         onClosed: compatKeys.forceActiveFocus()
         Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 14
+            anchors.margins: 16
             spacing: 6
 
             Label {
                 text: qsTr("Playlist")
+                font.pixelSize: 18
                 font.weight: Font.DemiBold
-                color: "#cfcfd8"
+                color: Theme.fg
             }
 
             Item {
@@ -785,7 +863,7 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     visible: playlistList.count === 0
                     text: qsTr("Playlist is empty — add files below")
-                    color: "#8a8a96"
+                    color: Theme.muted
                 }
             }
 
@@ -803,12 +881,12 @@ ApplicationWindow {
                 }
                 Item { Layout.fillWidth: true }
                 IconButton {
-                    glyph: "\u25C0"
+                    glyph: "prev"
                     ToolTip.text: qsTr("Previous")
                     onClicked: mpvItem.playlistPrev()
                 }
                 IconButton {
-                    glyph: "\u25B6"
+                    glyph: "next"
                     ToolTip.text: qsTr("Next")
                     onClicked: mpvItem.playlistNext()
                 }
