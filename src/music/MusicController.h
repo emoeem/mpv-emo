@@ -88,6 +88,9 @@ class MusicController : public QObject
     // 10 per-band gains in dB, clamped to ±12.
     Q_PROPERTY(QVariantList equalizerGains READ equalizerGains
                    NOTIFY equalizerChanged)
+    // Constants for the QML page (QML cannot read C++ static constexprs).
+    Q_PROPERTY(int bandCount READ bandCount CONSTANT)
+    Q_PROPERTY(double maxGain READ maxGain CONSTANT)
 
 public:
     // |settings| must outlive this controller; |engine| may be null in
@@ -103,6 +106,8 @@ public:
     bool equalizerEnabled() const { return m_equalizerEnabled; }
     QString equalizerPreset() const { return m_equalizerPreset; }
     QVariantList equalizerGains() const;
+    int bandCount() const { return kBandCount; }
+    double maxGain() const { return kMaxGain; }
 
     // Pure decision rules (static so unit tests run without an engine):
     // media counts as pure audio when no track-list entry is a (non-cover)
