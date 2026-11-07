@@ -175,6 +175,9 @@ private:
     QVector<LrcLine> m_lines;
     int m_lyricIndex = -1;
     QVariantMap m_lrcMetadata;
+    // The .lrc currently parsed and exposed (first existing candidate of
+    // the playing file); repeated reevaluate() runs skip re-parsing it.
+    QString m_lrcPath;
     QVariantMap m_mediaMetadata;
     bool m_equalizerEnabled = false;
     QString m_equalizerPreset = QStringLiteral("flat");
