@@ -357,7 +357,7 @@ Drawer {
                     var lines = pendingPlan.details
                     var out = ""
                     for (var i = 0; i < lines.length; ++i)
-                        out += "\u2022 " + lines[i]
+                        out += "\u2022 " + lines[i] + "\n"
                     return out
                 }
             }
