@@ -91,8 +91,14 @@ void TestInterpolationController::enabledWithMissingScriptBlocksButStaysOn()
     // No script file anywhere: enabling blocks with the script hint but is
     // NOT a support failure — the user can drop the script in later.
     controller.setEnabled(true);
+    if (controller.vsUnavailable()) {
+        // This libmpv build rejected the filter before admission even
+        // mattered: the honest fallback dominates the missing script.
+        QCOMPARE(controller.enabled(), false);
+        QVERIFY(!vfHasOurEntry(engine));
+        return;
+    }
     QCOMPARE(controller.enabled(), true);
-    QVERIFY(!controller.vsUnavailable());
     QCOMPARE(controller.blockReason(), u"script-missing"_s);
     QVERIFY(!vfHasOurEntry(engine));
     QCOMPARE(controller.expectedScriptPath(),
@@ -201,9 +207,11 @@ void TestInterpolationController::unknownPresetIsIgnoredAndCorruptionBehavesLike
                                        m_dir.filePath(u"vs4"_s), &engine);
     controller.startup();
 
-    // Setting an unknown id through the panel is ignored.
+    // Setting an unknown id through the panel is ignored. On a libmpv
+    // without vapoursynth the enable already fell back off (probe), which
+    // changes nothing about the preset validation below.
     controller.setEnabled(true);
-    QVERIFY(controller.enabled());
+    QVERIFY(controller.enabled() || controller.vsUnavailable());
     controller.setPreset(u"MEMC_MAGICAL"_s);
     QCOMPARE(controller.preset(), u"MEMC_RIFE_STD"_s);
 

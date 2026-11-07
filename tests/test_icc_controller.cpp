@@ -161,6 +161,10 @@ void TestIccController::fileUrlIsNormalizedToLocalPath()
     QVERIFY(writeProfile(profile));
     controller.setProfilePath(QUrl::fromLocalFile(profile).toString());
     QCOMPARE(controller.profilePath(), profile);
+    // The stored path is applied like any other: enable and read back
+    // through mpv.
+    controller.setEnabled(true);
+    QCOMPARE(controller.failed(), false);
     QCOMPARE(engine.getProperty(u"icc-profile"_s).toString(), profile);
 }
 
