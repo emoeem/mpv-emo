@@ -355,5 +355,7 @@ void TestUpdateChecker::secondCheckWhileInFlightIsIgnored()
     QCOMPARE(checker.latestVersion(), u"99.0.0"_s);
 }
 
-QTEST_MAIN(TestUpdateChecker)
+// GUI-less: this suite needs only QtCore + QtNetwork (loopback sockets),
+// so it must not demand a platform plugin on display-less CI runners.
+QTEST_GUILESS_MAIN(TestUpdateChecker)
 #include "test_update_checker.moc"
