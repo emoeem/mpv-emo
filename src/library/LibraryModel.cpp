@@ -22,6 +22,8 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
 
     const LibraryEntry &entry = m_visible.at(index.row());
     switch (role) {
+    case Qt::DisplayRole:
+        return entry.title;
     case PathRole:
         return entry.path;
     case TitleRole:
@@ -61,6 +63,7 @@ void LibraryModel::rebuild()
 {
     beginResetModel();
 
+    const int previousCount = m_visible.size();
     m_visible.clear();
     const QString needle = m_filter.trimmed();
     for (const LibraryEntry &entry : m_store->entryList()) {
@@ -72,5 +75,6 @@ void LibraryModel::rebuild()
     }
 
     endResetModel();
-    emit countChanged();
+    if (m_visible.size() != previousCount)
+        emit countChanged();
 }
