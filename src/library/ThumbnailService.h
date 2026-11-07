@@ -97,6 +97,7 @@ private:
     void pump();
     void startDurationProbe(const QString &path);
     void startGeneration(const QString &seekPosition);
+    void startJobProcess(const QStringList &arguments);
     void onJobFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onJobError(QProcess::ProcessError error);
     void onJobTimeout();

@@ -82,8 +82,8 @@ void ThumbnailService::probe()
 
     m_probeProcess = new QProcess(this);
     connect(m_probeProcess, &QProcess::finished, this, [this](int exitCode) {
-        if (!m_probeProcess)
-            return;
+        if (sender() != m_probeProcess)
+            return; // stale callback from a replaced probe
         // Real ffmpeg prints e.g. "ffmpeg version 6.1.1 Copyright ..." on
         // stdout; exit 0. Anything else counts as "no usable ffmpeg".
         m_available =
@@ -95,7 +95,7 @@ void ThumbnailService::probe()
         emit availabilityChanged();
     });
     connect(m_probeProcess, &QProcess::errorOccurred, this, [this]() {
-        if (!m_probeProcess)
+        if (sender() != m_probeProcess)
             return;
         m_available = false;
         m_probeProcess->deleteLater();
@@ -147,17 +147,10 @@ void ThumbnailService::startDurationProbe(const QString &path)
     m_jobPath = path;
     m_jobStage = JobStage::DurationProbe;
     m_jobCacheFile.clear();
-    m_jobProcess = new QProcess(this);
-    connect(m_jobProcess, &QProcess::finished, this,
-            &ThumbnailService::onJobFinished);
-    connect(m_jobProcess, &QProcess::errorOccurred, this,
-            &ThumbnailService::onJobError);
     // Duration probe with no output file: real ffmpeg prints the input's
     // "Duration:" line to stderr and exits 1 ("At least one output file must
     // be specified") — that exit code is expected and not an error here.
-    m_jobProcess->start(m_ffmpegBinary,
-                        {QStringLiteral("-i"), m_jobPath});
-    m_jobTimeout.start();
+    startJobProcess({QStringLiteral("-i"), m_jobPath});
 }
 
 void ThumbnailService::startGeneration(const QString &seekPosition)
@@ -175,20 +168,37 @@ void ThumbnailService::startGeneration(const QString &seekPosition)
     // limitation: for chroma-subsampled sources with odd heights ffmpeg can
     // reject -1 ("height not divisible by 2"); such files degrade to the
     // placeholder. (scale=320:-2 would avoid it; kept -1 per spec.)
-    m_jobProcess->start(m_ffmpegBinary,
-                        {QStringLiteral("-ss"), seekPosition,
-                         QStringLiteral("-i"), m_jobPath,
-                         QStringLiteral("-frames:v"), QStringLiteral("1"),
-                         QStringLiteral("-vf"), QStringLiteral("scale=320:-1"),
-                         QStringLiteral("-y"), m_jobCacheFile});
+    startJobProcess({QStringLiteral("-ss"), seekPosition,
+                     QStringLiteral("-i"), m_jobPath,
+                     QStringLiteral("-frames:v"), QStringLiteral("1"),
+                     QStringLiteral("-vf"), QStringLiteral("scale=320:-1"),
+                     QStringLiteral("-y"), m_jobCacheFile});
+}
+
+// One fresh child per stage. A new process object per stage (instead of
+// reusing one) keeps signal identity unambiguous: callbacks verify
+// sender() == m_jobProcess, so a straggler finished(Crashed) emitted by an
+// already-finished child right after errorOccurred cannot be applied to the
+// next job (Qt emits errorOccurred then finished back-to-back in
+// _q_processDied; the error handler finishes the job and pump() may already
+// be running the next one before the stale finished is dispatched).
+void ThumbnailService::startJobProcess(const QStringList &arguments)
+{
+    dropJobProcess();
+    m_jobProcess = new QProcess(this);
+    connect(m_jobProcess, &QProcess::finished, this,
+            &ThumbnailService::onJobFinished);
+    connect(m_jobProcess, &QProcess::errorOccurred, this,
+            &ThumbnailService::onJobError);
+    m_jobProcess->start(m_ffmpegBinary, arguments);
     m_jobTimeout.start();
 }
 
 void ThumbnailService::onJobFinished(int exitCode,
                                      QProcess::ExitStatus exitStatus)
 {
-    if (!m_jobProcess)
-        return;
+    if (sender() != m_jobProcess)
+        return; // stale callback from an already-replaced child
 
     const QString stderrText =
         QString::fromUtf8(m_jobProcess->readAllStandardError());
@@ -207,10 +217,12 @@ void ThumbnailService::onJobFinished(int exitCode,
 void ThumbnailService::onJobError(QProcess::ProcessError error)
 {
     Q_UNUSED(error);
-    // FailedToStart / Crashed / Timedout etc. Guarded: whichever of
-    // finished/errorOccurred/timeout arrives first finishes the job.
-    if (m_jobProcess)
-        finishJob(false);
+    // FailedToStart / Crashed / Timedout etc. Both identity guards matter:
+    // whichever of finished/errorOccurred/timeout acts first finishes the
+    // job, the others must be no-ops.
+    if (sender() != m_jobProcess)
+        return;
+    finishJob(false);
 }
 
 void ThumbnailService::onJobTimeout()
