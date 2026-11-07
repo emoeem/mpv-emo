@@ -28,6 +28,9 @@ private slots:
     void qualityDefaultsWhenMissing();
     void qualitySectionRoundTrips();
     void qualityCoexistsWithImportDecision();
+    // P7 music section.
+    void musicDefaultsWhenMissing();
+    void musicSectionRoundTrips();
 
 private:
     QTemporaryDir m_dir;
@@ -234,6 +237,52 @@ void TestAppSettings::qualityCoexistsWithImportDecision()
     QCOMPARE(settings.importDecision(), u"selective"_s);
     QCOMPARE(settings.qualityTier(), u"medium"_s);
     QVERIFY(!settings.importedAt().isEmpty());
+}
+
+void TestAppSettings::musicDefaultsWhenMissing()
+{
+    // A file written before P7 (no music section) loads with defaults.
+    const QString file = m_dir.filePath(u"pre-music.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setImportDecision(u"full"_s);
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QVERIFY(!settings.musicEqualizerEnabled());
+    QCOMPARE(settings.musicEqualizerPreset(), u"flat"_s);
+    QVERIFY(settings.musicEqualizerGains().isEmpty());
+    QCOMPARE(settings.importDecision(), u"full"_s);
+}
+
+void TestAppSettings::musicSectionRoundTrips()
+{
+    const QString file = m_dir.filePath(u"music.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setMusicEqualizerEnabled(true);
+        settings.setMusicEqualizerPreset(u"custom"_s);
+        settings.setMusicEqualizerGains(
+            QList<double>{1, 2, 3, 0, 0, -1, -2, 0, 4, 5});
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.musicEqualizerEnabled(), true);
+    QCOMPARE(settings.musicEqualizerPreset(), u"custom"_s);
+    QCOMPARE(settings.musicEqualizerGains(),
+             (QList<double>{1, 2, 3, 0, 0, -1, -2, 0, 4, 5}));
+
+    // The music section coexists with the quality/import sections: change
+    // one, verify the others survive the save/reload cycle.
+    settings.setQualityTier(u"high"_s);
+    QVERIFY(settings.save());
+    AppSettings reloaded(file);
+    QVERIFY(reloaded.load());
+    QCOMPARE(reloaded.qualityTier(), u"high"_s);
+    QCOMPARE(reloaded.musicEqualizerPreset(), u"custom"_s);
+    QCOMPARE(reloaded.musicEqualizerEnabled(), true);
 }
 
 QTEST_GUILESS_MAIN(TestAppSettings)

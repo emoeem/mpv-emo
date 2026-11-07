@@ -24,6 +24,10 @@ constexpr auto kQualityToneMapping = "toneMappingMode";
 constexpr auto kQualityScaleOverride = "scaleOverride";
 constexpr auto kQualityDebandMode = "debandMode";
 constexpr auto kQualityManualShaders = "manualShaderList";
+constexpr auto kMusic = "music";
+constexpr auto kMusicEqualizerEnabled = "equalizerEnabled";
+constexpr auto kMusicEqualizerPreset = "equalizerPreset";
+constexpr auto kMusicEqualizerGains = "equalizerGains";
 
 } // namespace
 
@@ -57,6 +61,9 @@ bool AppSettings::load()
     m_qualityScaleOverride.clear();
     m_qualityDebandMode = QStringLiteral("auto");
     m_manualShaderList.clear();
+    m_musicEqualizerEnabled = false;
+    m_musicEqualizerPreset = QStringLiteral("flat");
+    m_musicEqualizerGains.clear();
 
     QFile file(m_filePath);
     if (!file.exists())
@@ -95,6 +102,16 @@ bool AppSettings::load()
     m_manualShaderList.reserve(shaders.size());
     for (const QJsonValue &value : shaders)
         m_manualShaderList.append(value.toString());
+
+    const QJsonObject music = obj.value(QLatin1String(kMusic)).toObject();
+    m_musicEqualizerEnabled =
+        music.value(QLatin1String(kMusicEqualizerEnabled)).toBool();
+    m_musicEqualizerPreset =
+        music.value(QLatin1String(kMusicEqualizerPreset)).toString(m_musicEqualizerPreset);
+    const QJsonArray gains =
+        music.value(QLatin1String(kMusicEqualizerGains)).toArray();
+    for (const QJsonValue &value : gains)
+        m_musicEqualizerGains.append(value.toDouble());
     return true;
 }
 
@@ -111,6 +128,14 @@ bool AppSettings::save()
         shaders.append(shader);
     quality.insert(QLatin1String(kQualityManualShaders), shaders);
 
+    QJsonObject music;
+    music.insert(QLatin1String(kMusicEqualizerEnabled), m_musicEqualizerEnabled);
+    music.insert(QLatin1String(kMusicEqualizerPreset), m_musicEqualizerPreset);
+    QJsonArray gains;
+    for (const double gain : m_musicEqualizerGains)
+        gains.append(gain);
+    music.insert(QLatin1String(kMusicEqualizerGains), gains);
+
     QJsonObject obj;
     obj.insert(QLatin1String(kImportDecision), m_importDecision);
     obj.insert(QLatin1String(kDontAskAgain), m_dontAskAgain);
@@ -122,6 +147,7 @@ bool AppSettings::save()
                QJsonObject::fromVariantMap(m_lastImportSummary));
     obj.insert(QLatin1String(kImportedAt), m_importedAt);
     obj.insert(QLatin1String(kQuality), quality);
+    obj.insert(QLatin1String(kMusic), music);
 
     // Atomic write via QSaveFile: a crash mid-write leaves the previous
     // settings intact, mirroring HistoryStore.
@@ -190,5 +216,29 @@ void AppSettings::setManualShaderList(const QStringList &shaders)
     if (m_manualShaderList == shaders)
         return;
     m_manualShaderList = shaders;
+    emit changed();
+}
+
+void AppSettings::setMusicEqualizerEnabled(bool enabled)
+{
+    if (m_musicEqualizerEnabled == enabled)
+        return;
+    m_musicEqualizerEnabled = enabled;
+    emit changed();
+}
+
+void AppSettings::setMusicEqualizerPreset(const QString &preset)
+{
+    if (m_musicEqualizerPreset == preset)
+        return;
+    m_musicEqualizerPreset = preset;
+    emit changed();
+}
+
+void AppSettings::setMusicEqualizerGains(const QList<double> &gains)
+{
+    if (m_musicEqualizerGains == gains)
+        return;
+    m_musicEqualizerGains = gains;
     emit changed();
 }
