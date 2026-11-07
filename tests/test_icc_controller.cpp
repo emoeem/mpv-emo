@@ -27,7 +27,7 @@ private slots:
     void startupAppliesPersistedPreferences();
 
 private:
-    QString makeProfile(const QString &name);
+    bool writeProfile(const QString &path);
 
     QTemporaryDir m_dir;
 };
@@ -38,23 +38,24 @@ void TestIccController::initTestCase()
     QVERIFY(m_dir.isValid());
 }
 
-QString TestIccController::makeProfile(const QString &name)
+bool TestIccController::writeProfile(const QString &path)
 {
     // Content does not matter at the property level: mpv validates the
     // profile when the renderer loads it, the controller checks
-    // existence/readability and the option round trip.
-    const QString path = m_dir.filePath(name);
+    // existence/readability and the option round trip. Plain returns: a
+    // void return from QVERIFY() inside this helper would not compile.
     QFile file(path);
-    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    file.write("stub icc bytes");
-    return path;
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return false;
+    return file.write("stub icc bytes") > 0;
 }
 
 void TestIccController::disabledStartLeavesImportedProfileAlone()
 {
     // An imported mpv.conf profile (P4 passes icc-profile through) must
     // survive a controller that never got enabled.
-    const QString imported = makeProfile(u"imported.icc"_s);
+    const QString imported = m_dir.filePath(u"imported.icc"_s);
+    QVERIFY(writeProfile(imported));
     MpvEngine engine;
     QVERIFY(engine.initialize(
         QVariantMap{{u"icc-profile"_s, imported}}));
@@ -105,7 +106,8 @@ void TestIccController::validProfileAppliesWithRedirectedCache()
     IccController controller(&engine, &settings, m_dir.path(), &engine);
     controller.startup();
 
-    const QString profile = makeProfile(u"display.icc"_s);
+    const QString profile = m_dir.filePath(u"display.icc"_s);
+    QVERIFY(writeProfile(profile));
     controller.setProfilePath(profile);
     controller.setEnabled(true);
 
@@ -121,7 +123,8 @@ void TestIccController::validProfileAppliesWithRedirectedCache()
 void TestIccController::disableRestoresStartupSnapshot()
 {
     // An imported profile must come back when EmoPlay's ICC is disabled.
-    const QString imported = makeProfile(u"imported2.icc"_s);
+    const QString imported = m_dir.filePath(u"imported2.icc"_s);
+    QVERIFY(writeProfile(imported));
     MpvEngine engine;
     QVERIFY(engine.initialize(
         QVariantMap{{u"icc-profile"_s, imported}}));
@@ -130,7 +133,8 @@ void TestIccController::disableRestoresStartupSnapshot()
     IccController controller(&engine, &settings, m_dir.path(), &engine);
     controller.startup();
 
-    const QString ours = makeProfile(u"ours.icc"_s);
+    const QString ours = m_dir.filePath(u"ours.icc"_s);
+    QVERIFY(writeProfile(ours));
     controller.setProfilePath(ours);
     controller.setEnabled(true);
     QCOMPARE(engine.getProperty(u"icc-profile"_s).toString(), ours);
@@ -153,7 +157,8 @@ void TestIccController::fileUrlIsNormalizedToLocalPath()
     IccController controller(&engine, &settings, m_dir.path(), &engine);
     controller.startup();
 
-    const QString profile = makeProfile(u"url.icc"_s);
+    const QString profile = m_dir.filePath(u"url.icc"_s);
+    QVERIFY(writeProfile(profile));
     controller.setProfilePath(QUrl::fromLocalFile(profile).toString());
     QCOMPARE(controller.profilePath(), profile);
     QCOMPARE(engine.getProperty(u"icc-profile"_s).toString(), profile);
@@ -161,7 +166,8 @@ void TestIccController::fileUrlIsNormalizedToLocalPath()
 
 void TestIccController::startupAppliesPersistedPreferences()
 {
-    const QString profile = makeProfile(u"startup.icc"_s);
+    const QString profile = m_dir.filePath(u"startup.icc"_s);
+    QVERIFY(writeProfile(profile));
     const QString file = m_dir.filePath(u"startup.json"_s);
     {
         AppSettings settings(file);

@@ -182,8 +182,8 @@ void TestInterpolationDecision::vfReadbackClassification()
     // The vf property NODE readback: entries with name/label (get_obj_
     // settings_list). Only our exact label counts as ours.
     const QVariantList ours =
-        vfChain({vfEntryMap(u"scale", QString()),
-                 vfEntryMap(u"vapoursynth", u"emoplay-interp"_s)});
+        vfChain({vfEntryMap(u"scale"_s, QString()),
+                 vfEntryMap(u"vapoursynth"_s, u"emoplay-interp"_s)});
     QVERIFY(Dec::vfHasLabeledEntry(ours));
     QVERIFY(!Dec::vfHasForeignVapoursynth(ours));
 
@@ -194,20 +194,20 @@ void TestInterpolationDecision::vfReadbackClassification()
 
     // An unlabeled vapoursynth entry is foreign (user config territory).
     const QVariantList unlabeled =
-        vfChain({vfEntryMap(u"vapoursynth", QString())});
+        vfChain({vfEntryMap(u"vapoursynth"_s, QString())});
     QVERIFY(!Dec::vfHasLabeledEntry(unlabeled));
     QVERIFY(Dec::vfHasForeignVapoursynth(unlabeled));
 
     // A differently-labeled vapoursynth entry is foreign, too.
     const QVariantList labeledOther =
-        vfChain({vfEntryMap(u"vapoursynth", u"my-own-memc"_s)});
+        vfChain({vfEntryMap(u"vapoursynth"_s, u"my-own-memc"_s)});
     QVERIFY(!Dec::vfHasLabeledEntry(labeledOther));
     QVERIFY(Dec::vfHasForeignVapoursynth(labeledOther));
 
     // Same-name mismatch: a non-vapoursynth entry with our label is not
     // ours (and not foreign).
     const QVariantList wrongName =
-        vfChain({vfEntryMap(u"crop", u"emoplay-interp"_s)});
+        vfChain({vfEntryMap(u"crop"_s, u"emoplay-interp"_s)});
     QVERIFY(!Dec::vfHasLabeledEntry(wrongName));
     QVERIFY(!Dec::vfHasForeignVapoursynth(wrongName));
 }
