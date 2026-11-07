@@ -16,24 +16,30 @@ CI 入口：`.github/workflows/ci.yml`（构建 → `ctest` → Xvfb/llvmpipe QM
 | 1 | `test_config_parser` | MpvConfigParser | 纯逻辑 | mpv.conf / input.conf 解析（行内注释语义差异、profile 段、引号分词、CRLF），P4 兼容层的数据基础 |
 | 2 | `test_compat_scanner` | MpvProfileScanner | 纯逻辑 | 用户 mpv 配置目录定位（XDG_CONFIG_HOME 独占语义、legacy ~/.mpv 兜底顺序、Windows %APPDATA%；base-dir 注入，不碰真实 HOME） |
 | 3 | `test_import_rules` | MpvImportRules | 纯逻辑 | 导入规则：vo/osc/terminal 强制、include/profile/写路径剥离与重定向、其余选项通过、逐条审计 |
-| 4 | `test_app_settings` | AppSettings | 纯 Qt | settings.json 读写契约：导入决策/选择性清单/quality/music 节、损坏文件回退默认、QSaveFile 原子性 |
+| 4 | `test_app_settings` | AppSettings | 纯 Qt | settings.json 读写契约：导入决策/选择性清单/quality（含 interpolation/icc 嵌套对象）/music 节、损坏文件回退默认、QSaveFile 原子性 |
 | 5 | `test_mpv_key_name` | MpvKeyName | 纯逻辑 | Qt 键事件 → mpv 键名映射（可打印文本、命名键表、组合键、不可映射返回空） |
 | 6 | `test_compat_controller` | CompatController | headless（真实 mpv core） | 决策 → initialize() 选项组装、own input.conf 恒定受控、wizard 请求状态 |
 | 7 | `test_quality_profile_engine` | QualityProfileEngine | 纯逻辑 | 画质决策表：anime/live/off × tier × 分辨率分组 × fps≥50/HFR 避让 × HDR、Anime4K/SSimSuperRes 组链、非法 scale/deband 值校验 |
 | 8 | `test_quality_controller` | QualityController | headless（真实 mpv core） | 应用路径：选项写入、change-list glsl-shaders 挂载/收编、inert-at-off、掉帧自动降档 |
-| 9 | `test_mpv_engine` | MpvEngine | headless（真实 mpv core） | libmpv 句柄：初始化、属性设置/回读（含字符串 setProperty 地址语义回归）、命令、观察属性信号 |
-| 10 | `test_lrc_parser` | LrcParser | 纯逻辑 | .lrc 解析：1–3 位小数时间戳、多时间戳行、[ti]/[ar]/[al]、BOM、CRLF、同名候选规则 |
-| 11 | `test_music_controller` | MusicController | 纯逻辑 + headless | 纯音频判定（albumart 不排除）、歌词索引镜像、10 段 EQ af 链组装与真引擎回读、预设/持久化 |
-| 12 | `test_music_page` | qml/MusicPage.qml | 离屏 QML | 音乐页实例化：控件构成、EQ 滑条（视觉树）、歌词与元数据绑定（CI 冒烟只启动 Main.qml，Loader 不激活，故页面需自有测试） |
-| 13 | `test_history_store` | HistoryStore | headless | 播放历史：记录/去重置顶/上限 50 条/5s position 刷新/JSON 原子落盘/损坏回退 |
-| 14 | `test_plugin_manifest` | PluginManifest | 纯逻辑 | manager.json 兼容清单解析 + 随仓库内置目录（builtin_sources.json）合法性 |
-| 15 | `test_plugin_manager` | PluginManager | 纯 Qt（假 git runner） | 插件状态机：安装/更新(check 只读)/卸载、scripts 选项合并、state.json、错误上报——无网络无真实 git |
-| 16 | `test_library_store` | LibraryStore / LibraryScanWorker / LibraryModel | 纯 Qt | 媒体库：扫描与去重、文件夹清单持久化、worker 线程扫描、QAbstractListModel 行为 |
-| 17 | `test_update_checker` | UpdateChecker | 纯逻辑 + 本地回环 | P9：tag 解析、版本比较（含预发布序）、releases URL 组装；网络路径全部走 127.0.0.1 回环 HTTP（找到新版、html_url 回退、同版本/404/坏 JSON 静默、in-flight 去重），**不发真实请求** |
+| 9 | `test_interpolation_decision` | InterpolationDecision | 纯逻辑 | P5 v2 插值决策表：MEMC_* 预设登记、HDR/高帧率/脚本缺失/vf 链冲突让位、vf 项组装（`%len%` 逐字节引号） |
+| 10 | `test_interpolation_controller` | InterpolationController | headless（真实 mpv core） | P5 v2 插值应用路径：vf change-list 挂载/读回探测（`@emoplay-interp` 标签）、不可用回退关闭 |
+| 11 | `test_icc_controller` | IccController | headless（真实 mpv core） | P5 v2 ICC 应用路径：icc-profile 读写回验 + icc-cache-dir 经 P4 重定向表指向 AppData、禁用恢复导入快照 |
+| 12 | `test_mpv_engine` | MpvEngine | headless（真实 mpv core） | libmpv 句柄：初始化、属性设置/回读（含字符串 setProperty 地址语义回归）、命令、观察属性信号 |
+| 13 | `test_lrc_parser` | LrcParser | 纯逻辑 | .lrc 解析：1–3 位小数时间戳、多时间戳行、[ti]/[ar]/[al]、BOM、CRLF、同名候选规则 |
+| 14 | `test_music_controller` | MusicController | 纯逻辑 + headless | 纯音频判定（albumart 不排除）、歌词索引镜像、10 段 EQ af 链组装与真引擎回读、预设/持久化 |
+| 15 | `test_music_page` | qml/MusicPage.qml | 离屏 QML | 音乐页实例化：控件构成、EQ 滑条（视觉树）、歌词与元数据绑定（CI 冒烟只启动 Main.qml，Loader 不激活，故页面需自有测试） |
+| 16 | `test_history_store` | HistoryStore | headless | 播放历史：记录/去重置顶/上限 50 条/5s position 刷新/JSON 原子落盘/损坏回退 |
+| 17 | `test_plugin_manifest` | PluginManifest | 纯逻辑 | manager.json 兼容清单解析 + 随仓库内置目录（builtin_sources.json）合法性 |
+| 18 | `test_plugin_manager` | PluginManager | 纯 Qt（假 git runner） | 插件状态机：安装/更新(check 只读)/卸载、scripts 选项合并、state.json、错误上报——无网络无真实 git |
+| 19 | `test_remote_manifest_source` | RemoteManifestSource | 纯 Qt（假 fetcher） | P8 v2 在线清单源：远端 JSON 解析（fixture）、AppData/plugin-sources 缓存回读、本地+远端合并——同步假 PluginRemoteFetcher，无真实网络 |
+| 20 | `test_library_store` | LibraryStore / LibraryScanWorker / LibraryModel | 纯 Qt | 媒体库：扫描与去重、文件夹清单持久化、worker 线程扫描、QAbstractListModel 行为 |
+| 21 | `test_thumbnail_service` | ThumbnailService / ThumbnailQueue | 纯 Qt（stub 进程链） | P6 v2 缩略图：缓存键哈希（path+mtime）、时长/seek 解析、队列去重调度、ffmpeg 探测/生成链——stub 脚本驱动，不跑真 ffmpeg |
+| 22 | `test_update_checker` | UpdateChecker | 纯逻辑 + 本地回环 | P9：tag 解析、版本比较（含预发布序）、releases URL 组装；网络路径全部走 127.0.0.1 回环 HTTP（找到新版、html_url 回退、同版本/404/坏 JSON 静默、in-flight 去重），**不发真实请求** |
 | — | CI 冒烟（ci.yml 末步） | Main.qml 全启动 | 集成 | xvfb-run + llvmpipe：QML 能实例化渲染 3s（`--smoke-test`） |
 
 计数口径：`ctest` 输出「N% tests passed, 0 tests failed out of N」中的 N =
-上表 1–17；冒烟不计入 ctest。各批次的具体数字见 execution-log。
+上表 1–22（0.2.0-beta tag 处为 11；四路 v2 合入后为 22，main run
+42391432826 实查）；冒烟不计入 ctest。各批次的具体数字见 execution-log。
 
 ### 已知自动化盲区（必须由 §2 手工矩阵覆盖）
 
@@ -87,6 +93,10 @@ CI 入口：`.github/workflows/ci.yml`（构建 → `ctest` → Xvfb/llvmpipe QM
 | 15 | 打包产物在干净环境可用（AppImage / zip / dmg；DEB/RPM 依赖现状如实记录） | | | | | |
 | 16 | 长时间播放稳定性（≥30min 无泄漏迹象、掉帧统计合理） | | | | | |
 | 17 | 崩溃/错误路径（损坏媒体、不可读目录、settings.json 损坏）不崩溃且有日志 | | | | | |
+| 18 | 帧插值（预设切换生效；系统无 vapoursynth / .vpy 脚本缺失时回退关闭并提示；HDR/高帧率源让位） | | | | | |
+| 19 | ICC 显示配置（profile 选择生效、icc-cache 落在 AppData、禁用后恢复导入的 icc-profile） | | | | | |
+| 20 | 媒体库缩略图（真 ffmpeg 生成、缓存命中、ffmpeg 缺失降级占位；含奇数高度源条目） | | | | | |
+| 21 | 插件在线源（远端清单拉取/缓存、远端插件安装/更新、断网时静默降级到内置目录） | | | | | |
 
 ### 2.4 性能小节（tools/benchmark.sh 落表）
 

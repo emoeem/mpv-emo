@@ -209,3 +209,31 @@
   1. `1c3aeca` run 42384789152 failure（Build 步骤）：test_update_checker.cpp 编译败——LoopbackServer 各方法引用 `m_holdOpen` 但从未声明成员（`'m_holdOpen' was not declared in this scope`），且误用不存在的 `QTcpSocket::disconnectFromServer`（QAbstractSocket 实为 `disconnectFromHost`）→ `159b267` 声明成员 + 改用正确 API
   2. `159b267` run 42385431556 failure（Unit tests 步骤，其余 16 套件全过）：`QTEST_MAIN` 因 emo_core 传递链接的 Qt6::Gui 展开为 QGuiApplication，ctest 无显示器环境下加载 xcb 平台插件失败（`no Qt platform plugin could be initialized`）→ `d9fe078` 改 `QTEST_GUILESS_MAIN`（本套件只需 QtCore + QtNetwork，回环 socket/QNAM 不需要 GUI 应用）
 - **风险与待验证**：无本地编译，UpdateChecker/UpdateBadge 的编译与 QML 绑定由 CI 验证；无认证 GitHub API 限速 60 req/h（每启动一次远低于限速，但限速/离线时角标静默不出现属预期）；CPack DEB/RPM 依赖完备性未验证（按 minimal 定位）；benchmark.sh 仅 Linux 验证；角标点击行为与 release 页打开待实机验证
+
+## 2026-11-07 · 批次 9：冲刺收口——P6 v1 合并 + v0.2.0-beta 发布（2026-11-08 补记）
+
+- **任务**：P6 v1 媒体库（PR #2）合并收口；tag `v0.2.0-beta` 发布。
+- **会话中断说明**：负责本批次的会话在 v0.2.0-beta 发布完成后中断，未落执行记录（批次 7 的记录是中断前最后写入的批次记录，其成文时 PR #3 尚未合并）。本节由 2026-11-08 文档收尾批次依据 git 历史、tag、`gh api` release/run 实查**补记**；P6 行此前在 roadmap 标注「批次记录未单列」即源于此缺口，本节补齐。
+- **P6 v1 媒体库合并**（PR #2，merge commit `1379497`；`git log` 实查）：
+  - `c828e4b` feat(library): LibraryStore（目录清单、扩展名分类扫描、去重、JSON 持久化）；`fdfb915` feat(library): LibraryModel 暴露给 QML；`3674baa` feat(library): LibraryScanWorker 常驻线程扫描；`fae88d9` feat(library): LibraryDrawer + Main.qml 入口；`3106294` fix(library): 扫描进行中再到的请求串链；`42e76d6` fix(library): 规范化 QAbstractListModel 行为；`6211267` test(library): 扫描/去重/持久化/worker/模型；`bf81704` docs、`fe23d9a`/`2f900bc` 评审修复。
+  - **CI 结论**：merge push run 42319359427 **success**（1m57s，`gh run list --branch main` 实查）。
+- **v0.2.0-beta 发布**：tag `f810e662` → `1379497`（P6 合并点）；release.yml tag push run 42319680121 **success**（39m5s）；prerelease published 2026-11-07T01:19:45Z（`gh api repos/emoeem/mpv-emo/releases` 实查）。
+  - **发布资产**：`EmoPlay-0.2.0-beta-linux-x86_64.AppImage`（111,516,152 B ≈ 106 MB）、`EmoPlay-0.2.0-beta-windows-x86_64.zip`（95,508,202 B ≈ 91 MB）、`EmoPlay-0.2.0-beta-macos.dmg`（75,383,368 B ≈ 72 MB）。
+  - **tag 内容口径**（`git ls-tree 1379497 src/` 实查）：批次 1–6 + P6 v1；**不含** P7/P8/更新器（无 `src/music`、`src/plugins`、`src/update`；tests 11 套件）。批次 8 原稿把 P7/P8/更新器记在「0.2.0-beta」名下，是分支写作时点对未发布版本的预期，与实际 tag 内容不符——CHANGELOG 已在本批次按 tag 口径修正。
+- **风险与待验证**：0.2.0-beta 实机试用报告暴露三处启动阻塞（次批次 `09fba73` 修复）；签名/公证与 Windows/macOS 实机验证风险同批次 4。
+
+## 2026-11-07 · 批次 10：P7/P8 收口 + 四路 v2 合并 + 文档收尾（2026-11-08 补记）
+
+- **任务**：PR #3（P7 音乐模式）与 PR #1（P8 v1 插件商店）收口合并；R1–R6 优化 backlog 固化；0.2.0-beta 实机报告启动阻塞修复；四路 v2 分支（P5v2 插值+ICC / P6v2 缩略图 / P8v2 在线清单源 / P9v2 更新器）按一分支一 PR 依次合并；全量文档收尾。
+- **P7 收口**：PR #3 merge `a0cd3a7`，CI run 42381637240 **success**（2m11s）。批次记录见 execution-log 批次 7，不重复。
+- **P8 v1 收口**：PR #1 merge `fd4f44c`，CI run 42382311492 **success**（1m55s）。内容（commit `git log` 实查）：manager.json 兼容清单解析（`test_plugin_manifest` 含内置目录 assets/plugins/builtin_sources.json 校验）、PluginManager git 驱动安装/更新（check 只读）/卸载 + state.json（`test_plugin_manager` 用同步假 git runner）、启用插件的 scripts 选项合并（不替换用户导入清单）、PluginDrawer；评审修复 `bfa05f9`（记录完整安装头 + check 更新只读）、`5319d9a`/`e3cdee3`（operationFinished 探针悬垂）、`5765d30`（Qt 6.4 moc 不支持 raw-string 字面量）、`d45c568`、`c99297d`、`44532f6`/`639eedc`/`e5c3b33`/`42463cb`/`332780b`/`e39de1c`（QML 字符串拼接、开关生效、确认详情换行、卸载写失败上报、目录打不开告警、资源路径更正）。
+- **backlog 固化**：`85b760f` docs: add the approved optimization backlog (R1–R6)——2026-11-07 全面评估后所有者批准（docs/backlog.md），执行方式为六包并行 worktree 批次，全部合并后发布 v1.0；Blocked 节单列需所有者的项（签名证书、HDR 实机、崩溃上报基础设施）。CI run 42382607026 success。
+- **实机阻塞修复**：`09fba73` fix(app): three real-machine launch blockers from the 0.2.0-beta report（0.2.0-beta 实机报告的三处启动阻塞）。CI run 42388189728 success（2m7s）。
+- **四路 v2**（分支 → PR → merge commit → CI，run 均 `gh run list/view` 实查）：
+  1. **PR #7 feat/p5v2-icc-vs → `00d61c7`**：`InterpolationDecision` 纯决策表（nativeization-plan §2.1 的 MEMC_* 预设登记 6 项 + HDR/高帧率/脚本缺失/vf 链冲突让位；vf 项带 `@emoplay-interp` 标签、`%len%` 逐字节引号防 Windows 盘符拆参）；`InterpolationController`（诚实外部依赖：append 后读回 `vf` NODE 验证标签在位，失败回退关闭并提示「需要系统 vapoursynth 支持」；.vpy 脚本/VS 运行时为外部用户资产）；`IccController`（icc-profile + `icc-cache-dir` 经 `MpvImportRules::redirectTarget` 重定向 AppData/icc_cache、读回验证、禁用恢复 startup 快照）；InterpolationPanel/IccPanel；settings `interpolation`/`icc` 嵌套持久化；新增 3 套件。分支 CI 三轮失败修复链（失败日志实查）：42387096074 测试编译（char16_t 字面量缺 `_s`、`QList<QMap>` braced-init、返回 QString 的 void 助手）→ 42387456458 ctest 2/19（期望与回退序不符）→ 42387779736 ctest 1/19（fallback 后损坏预设状态重建）→ head `6d75193` run 42388095956 **success**（out of 19）；merge push run 42389458524 **success**（4m17s）。
+  2. **PR #5 feat/p6v2-thumbnails → `fe6272d`**：ThumbnailService/ThumbnailQueue/LibraryModel `thumbnailRole`/LibraryDrawer 双列网格（批次 8 已记，含评审修复 `3f4df37` 在途去重 + 析构静默）；最终分支 run 42390343430 success；merge push run 42390605356 **success**（2m12s）。
+  3. **PR #6 feat/p8v2-online → `f2ddf6d`**：`PluginRemoteFetcher`（QNetworkAccessManager 可注入 seam）→ `RemoteManifestSource`（多远端清单 + AppData/plugin-sources 缓存 + 本地/远端合并）→ 远端目录安装/更新 → `PluginRemoteSection.qml`；`test_remote_manifest_source`（fixture + 同步假 fetcher，headless）；评审修复 `e98c558`（手编源列表去重）、`ef190a1`（远端角标隐式尺寸）。head run 42390719297 success；merge push run 42390945673 **success**（2m51s）。
+  4. **PR #4 feat/p9v2-update → `9064d2d`**：UpdateChecker/UpdateBadge/CPack/benchmark.sh/testing-report/CHANGELOG 创建（批次 8 已记）；最终分支 run 42391144449 success；merge push run 42391432826 **success**（2m4s；日志实查「100% tests passed, 0 tests failed out of 22」+ Xvfb/llvmpipe QML 冒烟）——此为四路 v2 全部合入后 main 的最终 CI 结论。
+- **v1.0-rc：未发布**。`git ls-remote --tags` 与 `gh api releases` 实查远端仅 `v0.1.0-alpha`/`v0.2.0-beta` 两个 tag/release。rc 放行门槛未满足：backlog R1–R6 六包未执行、Blocked 项（Windows Authenticode / macOS 公证需证书、真 HDR 需硬件、崩溃上报需服务端）、testing-report §2 手工矩阵未在实体机铺开、性能基线未落表。CHANGELOG 以「未发布（v1.0-rc 候选）」节收存 beta 后全部变更，README 下载节如实标注 rc 未发布。
+- **文档收尾（本提交，唯一改动面）**：execution-log 补批次 9/10（本两节）；roadmap P5–P10 全量更新（验收依据填 CI 结论）；README 功能列表与下载节更新；CHANGELOG 0.2.0-beta 改「已发布」并按 tag 口径修正章节归属（见批次 9）；testing-report 套件表 17→22（补 `test_interpolation_decision`/`test_interpolation_controller`/`test_icc_controller`/`test_remote_manifest_source`/`test_thumbnail_service` 五行，`tests/CMakeLists.txt` 22 个 add_test 实查）并补 §2.3 功能矩阵四行（插值/ICC/缩略图/插件在线源）。
+- **风险与待验证**：四路 v2 的实机行为全部待实体机验证（VS 插值需系统 vapoursynth 与 .vpy 资产、ICC 需显示器 profile、缩略图真 ffmpeg 行为、在线清单网络路径、更新角标点击）；suite 计数 22 为 CI 日志实查（无本地编译）；backlog R1–R6 尚未排期执行。
