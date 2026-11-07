@@ -1,5 +1,6 @@
 #include "music/LrcParser.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
