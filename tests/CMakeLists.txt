@@ -66,3 +66,11 @@ target_compile_definitions(test_plugin_manifest PRIVATE
 add_executable(test_plugin_manager test_plugin_manager.cpp)
 target_link_libraries(test_plugin_manager PRIVATE emo_core Qt6::Test)
 add_test(NAME test_plugin_manager COMMAND test_plugin_manager)
+
+# P6 media library: pure scan logic, folder list persistence, the worker
+# thread scan and the QML list model. QtCore-only; runs headless.
+add_executable(test_library_store test_library_store.cpp)
+target_link_libraries(test_library_store PRIVATE emo_core Qt6::Test)
+add_test(NAME test_library_store COMMAND test_library_store)
+set_tests_properties(test_library_store PROPERTIES
+    TIMEOUT 60)

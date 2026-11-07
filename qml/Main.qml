@@ -324,6 +324,12 @@ ApplicationWindow {
                                                     : qualityDrawer.open()
                 }
                 IconButton {
+                    glyph: "\u25A4"
+                    ToolTip.text: qsTr("Library")
+                    onClicked: libraryDrawer.opened ? libraryDrawer.close()
+                                                    : libraryDrawer.open()
+                }
+                IconButton {
                     // Grid of squares next to the quality star: P8 plugins.
                     glyph: "\u25A6"
                     ToolTip.text: qsTr("Plugins")
@@ -696,6 +702,16 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    // P6 media library drawer (folder list, scan, search, entries). Size,
+    // focus return and key forwarding need Main.qml ids, so they are set
+    // here; everything else lives in LibraryDrawer.qml.
+    LibraryDrawer {
+        id: libraryDrawer
+        width: Math.min(root.width * 0.46, 460)
+        onClosed: compatKeys.forceActiveFocus()
+        Keys.onPressed: function (event) { root.forwardKeyEvent(event) }
     }
 
     // Playlist side drawer; the list itself is the engine's mirrored
