@@ -44,7 +44,9 @@ int main(int argc, char *argv[])
                      [](const QString &message) {
                          qCritical("compat: %s", qPrintable(message));
                      });
-    const QVariantMap compatOptions = compatController.startupOptions();
+    // Non-const: the P8 plugin manager appends enabled script plugin paths
+    // to the same map below before initialize() applies it.
+    QVariantMap compatOptions = compatController.startupOptions();
     if (!compatOptions.isEmpty())
         qInfo("Applying %lld imported mpv option(s)",
               static_cast<long long>(compatOptions.size()));
