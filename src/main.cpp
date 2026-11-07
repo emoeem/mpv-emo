@@ -15,6 +15,7 @@
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
 #include "music/MusicController.h"
+#include "plugins/PluginManager.h"
 #include "quality/QualityController.h"
 
 int main(int argc, char *argv[])
@@ -46,10 +47,24 @@ int main(int argc, char *argv[])
                      [](const QString &message) {
                          qCritical("compat: %s", qPrintable(message));
                      });
-    const QVariantMap compatOptions = compatController.startupOptions();
+    // Non-const: the P8 plugin manager appends enabled script plugin paths
+    // to the same map below before initialize() applies it.
+    QVariantMap compatOptions = compatController.startupOptions();
     if (!compatOptions.isEmpty())
         qInfo("Applying %lld imported mpv option(s)",
               static_cast<long long>(compatOptions.size()));
+
+    // P8 plugin store: enabled script plugins are APPENDED to the "scripts"
+    // option the compat layer assembled (the user's imported script list is
+    // never replaced); applies the same initialize() option map below.
+    PluginManager pluginManager(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation),
+        PluginManager::defaultCatalogPath());
+    QObject::connect(&pluginManager, &PluginManager::errorOccurred,
+                     [](const QString &message) {
+                         qWarning("plugins: %s", qPrintable(message));
+                     });
+    pluginManager.appendScriptOptions(compatOptions);
 
     // Destruction order matters: `view` is declared after `mpvEngine`, so it
     // is destroyed first; QML items (and their mpv render contexts) are
@@ -127,6 +142,8 @@ int main(int argc, char *argv[])
                                            &libraryStore);
     view.rootContext()->setContextProperty(QStringLiteral("libraryModel"),
                                            &libraryModel);
+    view.rootContext()->setContextProperty(QStringLiteral("pluginManager"),
+                                           &pluginManager);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

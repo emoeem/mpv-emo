@@ -1,0 +1,56 @@
+{
+  "//": "EmoPlay P8 built-in plugin catalog. Field semantics are the mpv-Emo manager.json ones (docs/nativeization-plan.md §4.1); the six entries below were transcribed verbatim from the user repository emoeem/mpv manager.json (read-only reference, shallow clone of commit 70d6eb4ad29b62209883cccb703df6403857733b, 2026-10-31). No upstream code, shader or asset is copied here — plugins are fetched from their upstream git URLs at install time under their own licenses (as verified in each upstream repository on 2026-11-07: uosc LGPL-2.1 via LICENSE.LGPL, uosc_danmaku MIT, Anime4K MIT, mpv-file-browser MIT, hdr-toys MIT, trakt-scrobble MIT).",
+  "sources": [
+    {
+      "name": "uosc",
+      "url": "https://github.com/tomasklaen/uosc.git",
+      "branch": "main",
+      "source": "src/uosc",
+      "destination": "scripts/uosc",
+      "mode": "check",
+      "baseline": "5.13.0"
+    },
+    {
+      "name": "uosc_danmaku",
+      "url": "https://github.com/Tony15246/uosc_danmaku.git",
+      "branch": "main",
+      "source": ".",
+      "destination": "scripts/uosc_danmaku",
+      "mode": "check",
+      "baseline": "d8c1cd8b4786c286a19079caef3f9ac9fa64933d"
+    },
+    {
+      "name": "anime4k",
+      "url": "https://github.com/bloc97/Anime4K.git",
+      "branch": "master",
+      "source": "glsl",
+      "destination": "shaders/Anime4K/glsl",
+      "mode": "replace"
+    },
+    {
+      "name": "file_browser",
+      "url": "https://github.com/CogentRedTester/mpv-file-browser.git",
+      "branch": "master",
+      "source": ".",
+      "destination": "scripts/file-browser",
+      "mode": "replace"
+    },
+    {
+      "name": "hdr-toys",
+      "url": "https://github.com/natural-harmonia-gropius/hdr-toys.git",
+      "branch": "master",
+      "source": "shaders/hdr-toys",
+      "destination": "shaders/hdr-toys",
+      "mode": "check",
+      "baseline": "b43e4575bdd655f4c7536f704219798b07d9a300"
+    },
+    {
+      "name": "trakt_scrobble",
+      "url": "https://github.com/dyphire/trakt-scrobble.git",
+      "branch": "main",
+      "source": ".",
+      "destination": "scripts/trakt-scrobble",
+      "mode": "check"
+    }
+  ]
+}

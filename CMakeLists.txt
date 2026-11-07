@@ -21,7 +21,7 @@ pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)
 
 # Core library: libmpv engine wrapper, QML video item, config parsing,
 # playback history, the P4 mpv compatibility layer, the P5 quality engine,
-# the P6 media library and the P7 music mode.
+# the P6 media library, the P7 music mode and the P8 plugin store.
 # Kept as a separate target so unit tests can link it without the app entry point.
 add_library(emo_core STATIC
     src/mpv/MpvEngine.cpp
@@ -40,6 +40,9 @@ add_library(emo_core STATIC
     src/library/LibraryStore.cpp
     src/library/LibraryScanWorker.cpp
     src/library/LibraryModel.cpp
+    src/plugins/PluginManifest.cpp
+    src/plugins/PluginGitRunner.cpp
+    src/plugins/PluginManager.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core
@@ -54,6 +57,14 @@ qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/ImportWizard.qml
     qml/MusicPage.qml
     qml/LibraryDrawer.qml
+    qml/PluginDrawer.qml
+)
+# P8 plugin store: the built-in manager.json-compatible catalog, read by
+# PluginManager from qrc:/assets/plugins/builtin_sources.json (see
+# PluginManager::defaultCatalogPath(); the resource alias is the file path
+# under PREFIX "/", same as the qml block above).
+qt_add_resources(emoplay "plugins" PREFIX "/" FILES
+    assets/plugins/builtin_sources.json
 )
 target_link_libraries(emoplay PRIVATE emo_core Qt6::QuickControls2)
 target_compile_definitions(emoplay PRIVATE
