@@ -14,6 +14,7 @@
 #include "history/HistoryStore.h"
 #include "library/LibraryModel.h"
 #include "library/LibraryStore.h"
+#include "library/ThumbnailService.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
 #include "music/MusicController.h"
@@ -94,7 +95,15 @@ int main(int argc, char *argv[])
     // wraps the store for QML. A file-loaded event stamps the matching
     // entry's last-played timestamp (unknown files are ignored).
     LibraryStore libraryStore(LibraryStore::defaultFilePath(), &mpvEngine);
-    LibraryModel libraryModel(&libraryStore);
+    // P6 v2 thumbnails: on-demand ffmpeg-generated JPEGs cached under
+    // AppData/thumbnails/<sha1(path+mtime)>.jpg. The availability probe is
+    // asynchronous; while ffmpeg is missing the model simply keeps empty
+    // thumbnails and the drawer degrades to type icons.
+    ThumbnailService thumbnailService(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+            + QStringLiteral("/thumbnails"));
+    thumbnailService.probe();
+    LibraryModel libraryModel(&libraryStore, &thumbnailService);
     QObject::connect(&mpvEngine, &MpvEngine::fileLoaded, &libraryStore,
                      [&mpvEngine, &libraryStore] {
                          libraryStore.notePlayed(
