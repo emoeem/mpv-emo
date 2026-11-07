@@ -36,6 +36,7 @@ add_library(emo_core STATIC
     src/quality/QualityProfileEngine.cpp
     src/quality/QualityController.cpp
     src/library/LibraryStore.cpp
+    src/library/LibraryScanWorker.cpp
     src/library/LibraryModel.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

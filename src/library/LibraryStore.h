@@ -4,7 +4,11 @@
 #include <QString>
 #include <QStringList>
 
+#include <atomic>
 #include <functional>
+
+class QThread;
+class LibraryScanWorker;
 
 // One discovered media file in the library. This is the P6 v1 "entry model":
 // no metadata lookup, no thumbnails — just what a directory walk can tell us
@@ -122,7 +126,11 @@ signals:
     void scanFileCountChanged();
 
 private slots:
+    // Queued receiver of the worker's finished() signal; also used to apply
+    // a scan's results. Must run on the store's thread.
     void applyScanResults(const QList<LibraryEntry> &entries);
+    // Queued receiver of the worker's progress() signal.
+    void onScanProgress(int fileCount);
 
 private:
     void load();
@@ -135,4 +143,12 @@ private:
 
     bool m_scanning = false;
     int m_scanFileCount = 0;
+
+    // Scan worker plumbing: one persistent worker thread for the store's
+    // lifetime (created in the constructor, shut down in the destructor).
+    // The worker lives in that thread; all cross-thread contact is via
+    // queued signal/slot or queued invokeMethod, so no locking is needed.
+    QThread *m_scanThread = nullptr;
+    LibraryScanWorker *m_scanWorker = nullptr;
+    std::atomic_bool m_scanCancelled{false};
 };

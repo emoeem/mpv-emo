@@ -10,12 +10,16 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QMetaObject>
 #include <QSaveFile>
 #include <QSet>
 #include <QStandardPaths>
+#include <QThread>
 #include <QUrl>
 
 #include <algorithm>
+
+#include "library/LibraryScanWorker.h"
 
 namespace {
 
@@ -63,10 +67,38 @@ QString toLocalPath(const QString &pathOrUrl)
 LibraryStore::LibraryStore(const QString &filePath, QObject *parent)
     : QObject(parent), m_filePath(filePath)
 {
+    // The worker hands QList<LibraryEntry> over a queued connection; make
+    // sure the metatype is registered regardless of connect() style.
+    qRegisterMetaType<QList<LibraryEntry>>("QList<LibraryEntry>");
+
+    m_scanThread = new QThread(this);
+    m_scanThread->setObjectName(QStringLiteral("library-scan"));
+    m_scanWorker = new LibraryScanWorker(&m_scanCancelled); // no parent: moved
+    m_scanWorker->moveToThread(m_scanThread);
+    connect(m_scanWorker, &LibraryScanWorker::progress, this,
+            &LibraryStore::onScanProgress);
+    connect(m_scanWorker, &LibraryScanWorker::finished, this,
+            &LibraryStore::applyScanResults);
+    m_scanThread->start();
+
     load();
 }
 
-LibraryStore::~LibraryStore() = default;
+LibraryStore::~LibraryStore()
+{
+    // Stop the event loop and make a running scan finish early via the
+    // cancel flag (checked per file). wait() guarantees neither the thread
+    // nor the worker touches m_scanCancelled (or anything else of ours)
+    // after this point, so the manual deletes below are safe.
+    if (m_scanThread) {
+        m_scanCancelled.store(true);
+        m_scanThread->quit();
+        m_scanThread->wait();
+        delete m_scanWorker;
+        m_scanWorker = nullptr;
+        m_scanThread = nullptr;
+    }
+}
 
 QString LibraryStore::defaultFilePath()
 {
@@ -119,16 +151,24 @@ void LibraryStore::requestScan()
     m_scanning = true;
     emit scanningChanged();
 
-    // v1 (this commit): the scan runs on the caller's thread; the next
-    // commit moves it onto a worker QThread with progress + cancellation.
     m_scanFileCount = 0;
     emit scanFileCountChanged();
-    applyScanResults(
-        scanDirectories(m_directories, m_scanOptions,
-                        [this](int count) {
-                            m_scanFileCount = count;
-                            emit scanFileCountChanged();
-                        }));
+    m_scanCancelled.store(false);
+
+    // Hand the request to the worker thread through its event loop. A new
+    // request can only be posted once m_scanning cleared again in
+    // applyScanResults, so the worker processes at most one scan at a time.
+    QMetaObject::invokeMethod(m_scanWorker, "beginScan",
+                              Qt::QueuedConnection,
+                              Q_ARG(QStringList, m_directories),
+                              Q_ARG(int, m_scanOptions.maxDepth),
+                              Q_ARG(bool, m_scanOptions.skipHidden));
+}
+
+void LibraryStore::onScanProgress(int fileCount)
+{
+    m_scanFileCount = fileCount;
+    emit scanFileCountChanged();
 }
 
 void LibraryStore::notePlayed(const QString &path)
