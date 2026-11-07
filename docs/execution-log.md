@@ -176,3 +176,15 @@
 - **涉及 commit**：`d88afed`、`805811a`、`6233547`、`db906ea`、`712cf51` + docs（本条与 architecture/roadmap 更新）
 - **已知限制（记入 roadmap「P7 收尾」）**：写 af 整链替换（EQ 启用期覆盖导入 af，唯一管理者语义同 P5 glsl-shaders）；无 passthrough 互锁；滑条每整数步重建 af 链（无防抖）；专辑浏览/封面墙、gapless/loop、歌词 `[offset:]` 不在 v1
 - **CI 结论**：**success**（run 42379553921，1m56s，日志实查「100% tests passed, 0 tests failed out of 14」+ Xvfb QML 冒烟通过）。本批次 PR（#3）因分支先于 PR #2 分叉、与 main 冲突，自创建起 `mergeable_state: dirty`，GitHub 无法创建 `refs/pull/3/merge` 而**静默跳过全部 pull_request 运行**（8 个 head commit 零 check run；同窗口 PR #1/#2 与 main 的 run 正常）。合并 main（`3b7d36e`）解决四处冲突（CMakeLists.txt / main.cpp / roadmap / execution-log，两侧产出全保留）后 CI 首跑，逐轮修复无本地编译暴露的问题：`LrcParser::LrcLine` 误引用（`LrcLine` 在命名空间层，`498ea18`）、MusicPage 相邻字符串字面量拼接 QML 不支持（`ee9b868`）、LrcParser 缺 `#include <QDir>`（`c4c8332`）、测试 `track()` 助手未定义与字面量缺 `_s`（`16109b5`/`46f00da`）、歌词索引 epsilon 1e-6 过大致 4.999999 s 误命中（`d12acb5`）、EQ 持久化测试未按 AppSettings 契约显式 `load()`（`ae45f35`）、页测滑条计数改走 `childItems()` 视觉树——Repeater delegate 无 QObject 父，`findChildren` 不可见（`9d5acf9`，探测过程见 `c8c73aa`…`413a50d`）。
+
+## 2026-11-07 · 批次 8：P6 v2 媒体库缩略图（ThumbnailService + 网格）
+
+- **任务**：T32–T34（分支 `feat/p6v2-thumbnails`，一个功能一个 commit）：ffmpeg 探测 + 按需缩略图生成 + `sha1(path+mtime)` 缓存 + QSet 串行队列；LibraryModel `thumbnailRole`；LibraryDrawer 网格异步加载；单测覆盖缓存哈希 / 队列纯逻辑 / ffmpeg 缺失降级（headless，不真跑 ffmpeg）
+- **产出**（`git log --oneline` 实查，4 个实现 commit + docs）：
+  - `ba115d0` feat(library): ThumbnailService + ThumbnailQueue + 单测——启动异步探测 `ffmpeg -version`（QProcess，exit 0 且 stdout 含 `ffmpeg version`）；按需生成走串行后台链（先 `-i` 从 stderr 正则解析 `Duration: HH:MM:SS.mmm`——无输出文件时 ffmpeg 本就 exit 1，该退出码不是失败；再 `-ss <时长10%> -i file -frames:v 1 -vf scale=320:-1 -y <cache>.jpg`，`-y` 防残留 0 字节缓存触发交互提示卡死）；缓存 `AppData/thumbnails/<sha1(路径UTF-8+mtime毫秒)>.jpg`（mtime 进哈希，编辑自动换键）；`ThumbnailQueue` 纯调度（QSet 去重 + FIFO 列表）；30 s 杀超时；失败进会话级失败集不重试；ffmpeg 缺失不入队不生成、已缓存文件仍命中
+  - `2c834bb` feat(library): LibraryModel `thumbnailRole`（角色名 `thumbnail`）——rebuild 时把可见路径按需交给服务（服务去重/缓存命中同步 ready）；`thumbnailReady` 按行 `dataChanged({ThumbnailRole})` 不整表 reset；`availabilityChanged` 重发可见请求（迟到探测仍填充）；旧单参构造保留（服务可空）
+  - `784b012` feat(ui): LibraryDrawer 列表改双列网格——`Image { asynchronous: true }` 异步加载缓存文件，空值/生成中/失败显示 ▶/♪ 类型图标占位（ffmpeg 缺失即 v1 观感，零额外接线）
+  - `280c8d1` feat(app): main.cpp 构造服务（`AppDataLocation/thumbnails`）+ 异步 probe + 注入 LibraryModel
+- **单测（test_thumbnail_service，12 例，全部不跑真 ffmpeg）**：纯逻辑（cachePathFor 与 sha1 规范互证、mtime 变更换键、seek=10% 格式化、Duration 正则含 `N/A`/垃圾输入、ThumbnailQueue 去重/FIFO/清空）；stub 脚本驱动进程链（`-version` 通过/拒绝伪横幅/二进制缺失；端到端生成断言调用日志逐参匹配 `-ss 12.000`（stub 120 s → 10%）与 `-vf scale=320:-1`、输出路径末参；失败不重试）；模型接线（角色暴露 + dataChanged 载荷、不可用服务保持占位、空服务旧行为）。stub 需 POSIX sh，非 Unix QSKIP
+- **已知限制（记入 roadmap「P6 收尾」）**：无缓存 GC、无进度/取消 UI；`scale=320:-1` 对奇数高度色度子采样源可能报 `height not divisible by 2`（规格指明 `-1`，未改用可规避的 `-2`，此类条目自然降级占位）；真 ffmpeg 编码行为与网格实机交互待验证
+- **CI 结论**：pending（push 后按 run 日志补记）

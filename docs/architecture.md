@@ -41,6 +41,8 @@
 | 应用设置 | `src/settings/AppSettings.{h,cpp}` | `AppDataLocation/settings.json`（QSaveFile 原子写入）：导入决策（full/selective/standalone/skip）、选择性文件清单、上次 ImportSummary、dontAskAgain、决策时间戳；P5 quality 节（contentMode/qualityTier/toneMappingMode/scaleOverride/debandMode/manualShaderList）；P7 music 节（equalizerEnabled/equalizerPreset/equalizerGains）；损坏文件回退默认值 |
 | 歌词解析 | `src/music/LrcParser.{h,cpp}` | 纯逻辑 .lrc 解析（无 mpv/GUI，全部单测）：`[mm:ss(.xx/.xxx)]` 时间戳（1–3 位小数）、多时间戳行、`[ti]/[ar]/[al]` 元数据、UTF-8 BOM 与 CRLF；无时间戳行与未知方括号标签跳过；输出按时间排序；`lrcCandidates()` 定义「音频同目录同名 .lrc（.lrc→.LRC）」匹配规则 |
 | 音乐模式 | `src/music/MusicController.{h,cpp}` | P7 音乐模式服务（HistoryStore 模式：信号驱动 + 按需读属性，不缓存播放状态）：纯音频判定（track-list 无 video 且文件名扩展名属音频集；`albumart` 封面轨不排除，mpv 0.37 input.rst `track-list/N/albumart`）→ `audioMode` 只读属性；解析同名 .lrc → `lyrics`（QVariantList）+ 按 time-pos 镜像 `lyricIndex`；10 段均衡器（af 链写入、预设/自定义持久化 music 节） |
+| 媒体库 | `src/library/LibraryStore.{h,cpp}`、`LibraryScanWorker.{h,cpp}`、`LibraryModel.{h,cpp}` | P6 媒体库 v1（file-browser/recentmenu 语义子集）：目录清单 + QDirIterator 扫描（扩展名分类 video/audio、绝对路径去重、按标题排序；纯静态函数可单测）；JSON 持久化（QSaveFile 原子写）；扫描走常驻 worker 线程（queued 信号回传 + atomic 取消位）；LibraryModel 挂搜索过滤与角色（path/title/type/size/lastPlayed/thumbnail） |
+| 缩略图 | `src/library/ThumbnailService.{h,cpp}`、`ThumbnailQueue.h` | P6 v2 缩略图（thumbfast 语义的简化原生版）：启动异步探测 ffmpeg（`ffmpeg -version`）；按需对库条目串行后台生成（先 `-i` 从 stderr 解析时长，再 `-ss <时长10%> -i file -frames:v 1 -vf scale=320:-1 -y` 抓帧）；缓存 `AppData/thumbnails/<sha1(path+mtime)>.jpg`（mtime 进哈希，文件改动自动换键）；调度为纯逻辑 ThumbnailQueue（QSet 去重 + FIFO）；ffmpeg 缺失优雅降级（不入队不生成，UI 保持类型图标；已缓存文件仍可命中） |
 
 ## 关键决策与理由
 
@@ -206,6 +208,45 @@ v1 未含项的前两项按「诚实的外部依赖」模式落地（mpv v0.37.0
   渲染期被 mpv 记录并回退无色彩管理，属性层探测不可见。
 - 持久化：settings.json `quality` 节新增 `interpolation{enabled,preset}` 与
   `icc{enabled,profilePath}` 两个嵌套对象（类型不符回退默认值）。
+## 媒体库与缩略图（P6 v1 + v2）
+
+file-browser/recentmenu/history-bookmark（nativeization-plan §2.2）的原生
+简化子集。v1（媒体库本体，PR #2 落地）：目录清单 + 扫描 + JSON 持久化 +
+抽屉列表；v2（本批次）：条目缩略图。
+
+### 缩略图管线（ThumbnailService）
+
+- **探测**：启动时异步 `ffmpeg -version`（QProcess，无 waitForFinished）；
+  exit 0 且 stdout 含 `ffmpeg version` 才视为可用。缺失/损坏的 ffmpeg →
+  `available=false`，一切请求直接丢弃——抽屉保持类型图标占位，绝不崩溃。
+- **按需生成**：LibraryModel 每次 rebuild（过滤/扫描/可用性变化）把可见
+  条目路径交给服务；服务缓存命中（`<sha1(path+mtime)>.jpg` 存在且非空）
+  时同步发 `thumbnailReady`，未命中且 ffmpeg 可用时入队。
+- **串行后台链**（每条目两个子进程，事件驱动、30 s 杀超时）：
+  1. `ffmpeg -i <file>` —— 无输出文件，ffmpeg 照例 exit 1 并把
+     `Duration: HH:MM:SS.mmm` 打到 stderr（按行正则解析；`N/A`/缺行 →
+     seek 0）；
+  2. `ffmpeg -ss <时长10%> -i <file> -frames:v 1 -vf scale=320:-1 -y
+     <cache>.jpg` —— `-y` 防止残留 0 字节缓存触发交互提示卡死链。
+- **缓存键**：`sha1(路径 UTF-8 + mtime 毫秒)`——同文件只生成一次，文件
+  被编辑后自动换键重新生成；旧键文件保留（v2 无缓存 GC）。
+- **失败语义**：生成失败（exit≠0/输出为空/进程错误/超时）记入会话级失败
+  集，不重试、不重入队；成功后进内存 ready 表并 `thumbnailReady(path,
+  cacheFile)`。
+- **模型桥**：LibraryModel `thumbnailRole`（角色名 `thumbnail`）返回
+  ready 表中的缓存路径（服务缺位时恒空）；ready→按行
+  `dataChanged({ThumbnailRole})`，不做整表 reset。QML 网格用
+  `Image { asynchronous: true }` 异步加载，空值显示类型图标占位。
+
+### 已知限制（P6 v2 未含项）
+
+- 单元测试不跑真 ffmpeg：进程链用 stub shell 脚本驱动（三段调用形状：
+  `-version` / `-i` 时长探测 / `-frames:v` 抓帧），CI 只验证接线与纯逻辑；
+  真 ffmpeg 的编码行为（如 `scale=320:-1` 对奇数高度色度子采样源可能报
+  `height not divisible by 2`，该类条目降级为占位）待实机验证——规格指明
+  `-1`，未改用可规避的 `-2`。
+- 无缓存 GC、无进度/取消 UI、无手动刷新；音频条目也尝试抓帧（有内嵌
+  封面的能出图，失败自然降级占位）。
 
 ## 配置兼容层（P4）
 
@@ -306,3 +347,4 @@ EmoPlay 自有的空 input.conf（AppData 下按需创建，创建失败经 `err
 - 配置兼容层（P4）已实现扫描/导入/使 input.conf 与脚本生效；GUI 键位编辑器与设置页入口待后续批次。
 - 画质引擎（P5 v1）已落地决策表/应用路径/面板/持久化；未含项与简化见「画质引擎（P5 v1）」一节。P5 v2 补齐帧插值（VapourSynth MEMC 预设，诚实外部依赖模式）与 ICC 显示配置（icc-profile + 重定向缓存），见「帧插值 v2 与 ICC（P5 v2）」。
 - 音乐模式（P7 v1）已落地歌词/EQ/纯音频判定/持久化；未含项与简化（af 唯一管理者、无 passthrough 互锁、专辑浏览等）见「音乐模式（P7 v1）」一节。
+- 媒体库与缩略图（P6 v1 + v2）已落地扫描/持久化/过滤模型/网格缩略图；未含项（缓存 GC、进度/取消、奇数高度源实机验证）见「媒体库与缩略图（P6 v1 + v2）」一节。
