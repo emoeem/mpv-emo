@@ -107,3 +107,29 @@ endif()
 
 enable_testing()
 add_subdirectory(tests)
+
+# --------------------------------------------------------------------------
+# CPack (P9): minimal DEB/RPM plumbing. This is *minimal* on purpose: it
+# packages the emoplay binary produced by a normal Linux build without
+# claiming a complete dependency list — the Qt6/libmpv runtime dependencies
+# are not fully expressed here (shlibdeps automation is off), so these
+# packages may not install on an arbitrary distro out of the box. The
+# blessed Linux delivery channel remains the AppImage built by release.yml;
+# the DEB/RPM generators exist so local package smoke tests and future
+# distro packaging have a starting point.
+set(CPACK_PACKAGE_NAME "emoplay")
+set(CPACK_PACKAGE_VENDOR "EmoPlay")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/emoeem/mpv-emo")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "Cross-platform media player built on libmpv and Qt6/QML")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+# DEB requires a maintainer; RPM reuses it for the packager field.
+set(CPACK_PACKAGE_CONTACT "EmoPlay <emoplay@users.noreply.github.com>")
+# DEB: metadata only, no dependency list (see the minimal note above).
+set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
+# RPM: MIT matches LICENSE at the repository root.
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+set(CPACK_GENERATOR "DEB;RPM")
+include(CPack)
