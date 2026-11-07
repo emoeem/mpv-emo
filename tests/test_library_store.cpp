@@ -620,11 +620,12 @@ void TestLibraryStore::modelFollowsStoreUpdates()
     QVERIFY(store.addDirectory(fixturePath(u"Movies"_s)));
     QTRY_COMPARE(model.count(), 6);
     QVERIFY(findEntry(store.entryList(), u"fake"_s).path.isEmpty());
-    // The filtered-out view follows too.
-    model.setFilter(u"movie"_s);
+    // The filtered view follows too. ("movie" would match every entry via
+    // the Movies folder inside the path, so pin one unique title instead.)
+    model.setFilter(u"ep1"_s);
     QCOMPARE(model.count(), 1);
     QCOMPARE(model.data(model.index(0, 0), LibraryModel::PathRole).toString(),
-             fixturePath(u"Movies/movie.mkv"_s));
+             fixturePath(u"Movies/Season 1/ep1.mkv"_s));
 }
 
 void TestLibraryStore::modelRolesExposeEntryFields()
