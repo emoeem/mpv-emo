@@ -116,7 +116,7 @@ public:
     static bool isAudioMedia(const QVariantList &tracks, const QString &filename);
     // Index of the line playing at |seconds|: the last line whose time is
     // <= seconds; -1 before the first line (and for empty input).
-    static int lyricIndexAt(const QVector<LrcParser::LrcLine> &lines,
+    static int lyricIndexAt(const QVector<LrcLine> &lines,
                             double seconds);
 
     // Equalizer pure helpers (unit tested without an engine).
@@ -172,7 +172,7 @@ private:
     AppSettings *m_settings = nullptr;
     bool m_audioMode = false;
     QVariantList m_lyrics;
-    QVector<LrcParser::LrcLine> m_lines;
+    QVector<LrcLine> m_lines;
     int m_lyricIndex = -1;
     QVariantMap m_lrcMetadata;
     QVariantMap m_mediaMetadata;

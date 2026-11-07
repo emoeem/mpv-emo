@@ -109,7 +109,7 @@ bool MusicController::isAudioMedia(const QVariantList &tracks,
     return isAudioExtension(filename);
 }
 
-int MusicController::lyricIndexAt(const QVector<LrcParser::LrcLine> &lines,
+int MusicController::lyricIndexAt(const QVector<LrcLine> &lines,
                                   double seconds)
 {
     int index = -1;
