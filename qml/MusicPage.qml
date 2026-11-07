@@ -236,8 +236,7 @@ Item {
                     Layout.fillWidth: true
                     text: musicController.equalizerEnabled
                           ? qsTr("Applied to mpv's audio filter chain")
-                          : qsTr("Disabled — the audio filter chain is "
-                                 "left untouched")
+                          : qsTr("Disabled — the audio filter chain is left untouched")
                     color: "#8a8a96"
                     font.pixelSize: 11
                     wrapMode: Text.WordWrap
