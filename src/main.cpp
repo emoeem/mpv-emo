@@ -260,8 +260,10 @@ int main(int argc, char *argv[])
     }
 
     if (cli.isSet(smokeTestOption)) {
-        QTimer::singleShot(3000, &app, [&, &mpvEngine]() {
-            qInfo("DEBUG idle-active=%s filename=%s",
+        // Capture list must be exactly [&]: clang and MSVC reject a redundant
+        // explicit capture after a by-reference default (GCC only warns).
+        QTimer::singleShot(3000, &app, [&]() {
+            qInfo("smoke: idle-active=%s filename=%s",
                   mpvEngine.getProperty(QStringLiteral("idle-active")).toString().toUtf8().constData(),
                   mpvEngine.getProperty(QStringLiteral("filename")).toString().toUtf8().constData());
             QCoreApplication::quit();
