@@ -208,7 +208,7 @@ Drawer {
                         Layout.fillWidth: true
                         visible: modelData.baseline.length > 0
                         text: qsTr("Baseline %1 (local customizations are "
-                                   "based on this upstream version)")
+                                   + "based on this upstream version)")
                                   .arg(modelData.baseline)
                         color: "#8a8a96"
                         font.pixelSize: 11
@@ -255,7 +255,7 @@ Drawer {
                         Layout.fillWidth: true
                         visible: !modelData.isScript
                         text: qsTr("Shader pack — mounted manually from the "
-                                   "quality panel, not via scripts")
+                                   + "quality panel, not via scripts")
                         color: "#8a8a96"
                         font.pixelSize: 11
                         wrapMode: Text.WordWrap
