@@ -1,5 +1,7 @@
 #include "plugins/RemoteManifestSource.h"
 
+#include "plugins/PluginManager.h"
+
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
