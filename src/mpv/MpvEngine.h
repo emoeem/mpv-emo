@@ -93,6 +93,11 @@ signals:
     void currentVoChanged(const QString &vo);
     void videoFormatChanged(const QString &format);
 
+    // P7 music mode: mirrors mpv's "metadata" property (NODE map of the
+    // current file's metadata tags, e.g. title/artist/album). Empty map
+    // when unavailable (no media, between files).
+    void metadataChanged(const QVariantMap &metadata);
+
 private slots:
     // Entry point for the wakeup callback; see onWakeup.
     void handleEvents();

@@ -44,6 +44,30 @@ set_tests_properties(test_mpv_engine PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120)
 
+# P7 music mode: .lrc lyric parser is pure logic (no mpv, no GUI).
+add_executable(test_lrc_parser test_lrc_parser.cpp)
+target_link_libraries(test_lrc_parser PRIVATE emo_core Qt6::Test)
+add_test(NAME test_lrc_parser COMMAND test_lrc_parser)
+
+# P7 music-mode decision rules: pure logic, no mpv needed for these cases.
+add_executable(test_music_controller test_music_controller.cpp)
+target_link_libraries(test_music_controller PRIVATE emo_core Qt6::Test)
+add_test(NAME test_music_controller COMMAND test_music_controller)
+set_tests_properties(test_music_controller PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 120)
+
+# P7 music page: headless instantiation of qml/MusicPage.qml (the CI smoke
+# test boots Main.qml only — the loader stays inactive without audio).
+add_executable(test_music_page test_music_page.cpp)
+target_link_libraries(test_music_page PRIVATE emo_core Qt6::Test)
+target_compile_definitions(test_music_page PRIVATE
+    EMOPLAY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME test_music_page COMMAND test_music_page)
+set_tests_properties(test_music_page PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 60)
+
 add_executable(test_history_store test_history_store.cpp)
 target_link_libraries(test_history_store PRIVATE emo_core Qt6::Test)
 # HistoryStore is pure Qt logic (plus an idle libmpv core); runs headless.
