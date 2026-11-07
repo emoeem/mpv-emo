@@ -1,5 +1,4 @@
 #include <QStandardPaths>
-#include <QTemporaryDir>
 #include <QtTest>
 
 #include <memory>
@@ -28,13 +27,13 @@ class TestMusicPage : public QObject
 private slots:
     void initTestCase();
     void pageInstantiates();
-
-private:
-    QTemporaryDir m_dir;
 };
 
 void TestMusicPage::initTestCase()
 {
+    // Keep defaultFilePath() calls (if any code touches it) off the real
+    // user data; the page itself is instantiated with a null-engine
+    // controller and a null settings pointer.
     QStandardPaths::setTestModeEnabled(true);
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 }

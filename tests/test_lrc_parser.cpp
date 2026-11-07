@@ -144,5 +144,7 @@ void TestLrcParser::lrcCandidates()
     QVERIFY(LrcParser::lrcCandidates(QString()).isEmpty());
 }
 
-QTEST_MAIN(TestLrcParser)
+// Pure-logic test: QTEST_GUILESS_MAIN (a QGuiApplication would need a
+// display or an offscreen platform; see execution-log batch 5).
+QTEST_GUILESS_MAIN(TestLrcParser)
 #include "test_lrc_parser.moc"
