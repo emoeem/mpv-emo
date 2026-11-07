@@ -158,6 +158,17 @@ void MusicController::loadLyrics(const QString &path)
     for (const QString &candidate : LrcParser::lrcCandidates(path)) {
         if (!QFile::exists(candidate))
             continue;
+        if (candidate == m_lrcPath) {
+            // Already parsed and exposed (track-list updates re-run
+            // reevaluate() several times per file while mpv probes).
+            // Rebuilding the exposed list would reset the QML ListView and
+            // drop the scroll position, and setLyricIndex stays silent when
+            // the line did not move -- so only refresh the index here.
+            setLyricIndex(lyricIndexAt(m_lines,
+                                       m_engine ? m_engine->getProperty(u"time-pos"_s).toDouble()
+                                                : 0.0));
+            return;
+        }
         const LrcParser::LrcData data = LrcParser::parseFile(candidate);
         QVariantMap metadata;
         if (!data.title.isEmpty())
@@ -179,6 +190,7 @@ void MusicController::loadLyrics(const QString &path)
         m_lines = data.lines;
         m_lyrics = lines;
         m_lrcMetadata = metadata;
+        m_lrcPath = candidate;
         // Playback position did not change, but the line set may differ.
         setLyricIndex(lyricIndexAt(m_lines,
                                    m_engine ? m_engine->getProperty(u"time-pos"_s).toDouble()
@@ -191,6 +203,7 @@ void MusicController::loadLyrics(const QString &path)
 
 void MusicController::clearLyrics()
 {
+    m_lrcPath.clear();
     if (m_lyrics.isEmpty() && m_lines.isEmpty() && m_lrcMetadata.isEmpty())
         return;
     m_lines.clear();
@@ -338,10 +351,11 @@ void MusicController::setEqualizerBand(int band, double gain)
     if (m_gains[band] == clamped)
         return;
     m_gains[band] = clamped;
-    if (m_equalizerPreset != QLatin1String("custom")) {
+    if (m_equalizerPreset != QLatin1String("custom"))
         m_equalizerPreset = QStringLiteral("custom");
-        m_settings->setMusicEqualizerPreset(m_equalizerPreset);
-    }
+    // Persistence goes through persistEqualizer() alone: it guards the
+    // null-settings case (tests run the controller without AppSettings)
+    // and writes the preset together with the gains it changed with.
     persistEqualizer();
     applyEqualizerToEngine();
     emit equalizerChanged();

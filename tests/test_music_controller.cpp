@@ -132,6 +132,15 @@ void TestMusicController::nullEngineStaysIdle()
     QCOMPARE(controller.audioMode(), false);
     QVERIFY(controller.lyrics().isEmpty());
     QCOMPARE(controller.lyricIndex(), -1);
+
+    // EQ mutations without AppSettings must not crash either (the QML page
+    // drives these slots): state changes stay in memory only.
+    controller.setEqualizerEnabled(true);
+    controller.applyEqualizerPreset(u"bass"_s);
+    controller.setEqualizerBand(0, 3);
+    QCOMPARE(controller.equalizerEnabled(), true);
+    QCOMPARE(controller.equalizerPreset(), u"custom"_s);
+    QCOMPARE(controller.equalizerGains().at(0).toDouble(), 3.0);
 }
 
 void TestMusicController::initTestCase()
