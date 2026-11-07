@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#include <QSet>
 #include <QtGlobal>
 
 namespace {
@@ -132,6 +133,11 @@ PluginManifest PluginManager::manifestFor(const QString &name) const
         if (manifest.name == name)
             return manifest;
     }
+    // P8 v2: manifests from online sources resolve after the builtin catalog.
+    for (const PluginManifest &manifest : m_remoteCatalog) {
+        if (manifest.name == name)
+            return manifest;
+    }
     return PluginManifest(); // invalid
 }
 
@@ -221,7 +227,7 @@ void PluginManager::mergeScriptOptions(QVariantMap &options,
 void PluginManager::appendScriptOptions(QVariantMap &options) const
 {
     QStringList entries;
-    for (const PluginManifest &manifest : m_catalog) {
+    for (const PluginManifest &manifest : allManifests()) {
         const auto it = m_state.constFind(manifest.name);
         const bool enabled = it != m_state.constEnd() && it->enabled;
         if (enabled && isInstalled(manifest.name))
@@ -230,7 +236,39 @@ void PluginManager::appendScriptOptions(QVariantMap &options) const
     mergeScriptOptions(options, entries);
 }
 
+void PluginManager::setRemoteCatalog(const QVector<PluginManifest> &manifests)
+{
+    // Skip no-op pushes: RemoteManifestSource pushes on every fetch/cache
+    // load, and an unconditional changed() would churn the drawer needlessly.
+    bool same = manifests.size() == m_remoteCatalog.size();
+    for (int i = 0; same && i < manifests.size(); ++i) {
+        const PluginManifest &a = manifests.at(i);
+        const PluginManifest &b = m_remoteCatalog.at(i);
+        same = a.name == b.name && a.url == b.url && a.branch == b.branch
+               && a.source == b.source && a.destination == b.destination
+               && a.mode == b.mode && a.baseline == b.baseline;
+    }
+    if (same)
+        return;
+    m_remoteCatalog = manifests;
+    emit changed();
+}
+
 // ---- model ------------------------------------------------------------------
+
+QVector<PluginManifest> PluginManager::allManifests() const
+{
+    QVector<PluginManifest> all = m_catalog;
+    all.reserve(m_catalog.size() + m_remoteCatalog.size());
+    QSet<QString> seen;
+    for (const PluginManifest &manifest : m_catalog)
+        seen.insert(manifest.name);
+    for (const PluginManifest &manifest : m_remoteCatalog) {
+        if (!seen.contains(manifest.name))
+            all.append(manifest); // the builtin catalog keeps priority
+    }
+    return all;
+}
 
 bool PluginManager::updateAvailable(const PluginManifest &manifest,
                                     const PluginState &state) const
@@ -254,36 +292,38 @@ bool PluginManager::updateAvailable(const PluginManifest &manifest,
 QVariantList PluginManager::plugins() const
 {
     QVariantList list;
-    list.reserve(m_catalog.size());
-    for (const PluginManifest &manifest : m_catalog) {
-        const PluginState state = m_state.value(manifest.name);
-        const bool installed = isInstalled(manifest.name);
-        const QStringList entryPaths =
-            scriptEntryPaths(manifest, m_pluginsRoot);
-
-        QVariantMap entry;
-        entry.insert(QStringLiteral("name"), manifest.name);
-        entry.insert(QStringLiteral("url"), manifest.url);
-        entry.insert(QStringLiteral("branch"), manifest.branch);
-        entry.insert(QStringLiteral("source"), manifest.source);
-        entry.insert(QStringLiteral("destination"), manifest.destination);
-        entry.insert(QStringLiteral("mode"), manifest.mode);
-        entry.insert(QStringLiteral("baseline"), manifest.baseline);
-        entry.insert(QStringLiteral("isScript"), manifest.isScriptPlugin());
-        entry.insert(QStringLiteral("installed"), installed);
-        entry.insert(QStringLiteral("enabled"),
-                     installed && manifest.isScriptPlugin() && state.enabled);
-        entry.insert(QStringLiteral("head"), state.head);
-        entry.insert(QStringLiteral("remoteHead"), m_remoteHeads.value(manifest.name));
-        entry.insert(QStringLiteral("updateAvailable"),
-                     updateAvailable(manifest, state));
-        entry.insert(QStringLiteral("locallyModified"),
-                     m_locallyModified.value(manifest.name, false));
-        entry.insert(QStringLiteral("entryPath"),
-                     entryPaths.value(0, QString()));
-        list.append(entry);
-    }
+    list.reserve(m_catalog.size() + m_remoteCatalog.size());
+    for (const PluginManifest &manifest : allManifests())
+        list.append(pluginRow(manifest));
     return list;
+}
+
+QVariantMap PluginManager::pluginRow(const PluginManifest &manifest) const
+{
+    const PluginState state = m_state.value(manifest.name);
+    const bool installed = isInstalled(manifest.name);
+    const QStringList entryPaths = scriptEntryPaths(manifest, m_pluginsRoot);
+
+    QVariantMap entry;
+    entry.insert(QStringLiteral("name"), manifest.name);
+    entry.insert(QStringLiteral("url"), manifest.url);
+    entry.insert(QStringLiteral("branch"), manifest.branch);
+    entry.insert(QStringLiteral("source"), manifest.source);
+    entry.insert(QStringLiteral("destination"), manifest.destination);
+    entry.insert(QStringLiteral("mode"), manifest.mode);
+    entry.insert(QStringLiteral("baseline"), manifest.baseline);
+    entry.insert(QStringLiteral("isScript"), manifest.isScriptPlugin());
+    entry.insert(QStringLiteral("installed"), installed);
+    entry.insert(QStringLiteral("enabled"),
+                 installed && manifest.isScriptPlugin() && state.enabled);
+    entry.insert(QStringLiteral("head"), state.head);
+    entry.insert(QStringLiteral("remoteHead"), m_remoteHeads.value(manifest.name));
+    entry.insert(QStringLiteral("updateAvailable"),
+                 updateAvailable(manifest, state));
+    entry.insert(QStringLiteral("locallyModified"),
+                 m_locallyModified.value(manifest.name, false));
+    entry.insert(QStringLiteral("entryPath"), entryPaths.value(0, QString()));
+    return entry;
 }
 
 // ---- planning ---------------------------------------------------------------
@@ -491,10 +531,11 @@ void PluginManager::checkForUpdate(const QString &name)
 
 void PluginManager::checkAll()
 {
-    if (m_busy || m_catalog.isEmpty())
+    const QVector<PluginManifest> all = allManifests();
+    if (m_busy || all.isEmpty())
         return;
     m_checkQueue.clear();
-    for (const PluginManifest &manifest : m_catalog)
+    for (const PluginManifest &manifest : all)
         m_checkQueue.append(manifest.name);
     begin(m_checkQueue.takeFirst(), Action::CheckAll);
 }
