@@ -3,12 +3,13 @@
 
 #include <QDebug>
 #include <QQmlError>
+#include <QQuickItem>
+#include <functional>
 #include <memory>
 
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
-#include <QQmlExpression>
 #include <QQuickStyle>
 
 #include "music/MusicController.h"
@@ -70,48 +71,35 @@ void TestMusicPage::pageInstantiates()
     QVERIFY2(qmlMessages.isEmpty(),
              qPrintable(qmlMessages.join(u"\n"_s)));
 
-    // The equalizer repeater built one slider per band (counted by type,
-    // not by reading the var property back — var-to-QVariant conversion is
-    // lossy for object references).
-    int sliderCount = 0;
-    QStringList childTypes;
-    const QObject *repeater = nullptr;
-    const QList<QObject *> children = page->findChildren<QObject *>();
-    for (const QObject *child : children) {
-        childTypes.append(QString::fromLatin1(child->metaObject()->className()));
-        if (!repeater && child->inherits("QQuickRepeater"))
-            repeater = child;
-        if (child->inherits("QQuickSlider"))
-            ++sliderCount;
-    }
+    // The equalizer repeater builds one slider per band. Counted in the
+    // VISUAL tree: Repeater delegates get their parentItem set but keep no
+    // QObject parent (the Repeater owns them in C++), so a findChildren
+    // walk never reaches them even though everything instantiated fine.
+    const std::function<int(QQuickItem *)> countSliders =
+        [&](QQuickItem *item) -> int {
+        int count = item->inherits("QQuickSlider") ? 1 : 0;
+        for (QQuickItem *child : item->childItems())
+            count += countSliders(child);
+        return count;
+    };
+    const int sliderCount =
+        countSliders(qobject_cast<QQuickItem *>(page.get()));
     if (sliderCount != controller.bandCount()) {
+        // Failure context: the QObject-parent walk (declarative children
+        // only) plus the repeater's own view of the world.
+        QStringList childTypes;
+        for (const QObject *child : page->findChildren<QObject *>())
+            childTypes.append(
+                QString::fromLatin1(child->metaObject()->className()));
         qWarning().nospace().noquote()
-            << "instantiated item tree (" << childTypes.size()
-            << " children): " << childTypes.join(u", "_s);
-        if (repeater)
-            qWarning() << "repeater model:" << repeater->property("model")
-                       << "count:" << repeater->property("count");
-        // What QML itself sees for the context property and its reads.
-        for (const QString &expression :
-             {u"typeof musicController"_s, u"musicController"_s,
-              u"musicController.bandCount"_s,
-              u"musicController.equalizerGains.length"_s,
-              u"bandRepeater.itemAt(0)"_s,
-              u"bandRepeater.itemAt(0) ? bandRepeater.itemAt(0).parent : 'null'"_s,
-              u"bandRepeater.itemAt(0) ? bandRepeater.itemAt(0).parentItem : 'null'"_s}) {
-            bool undefinedValue = false;
-            QQmlExpression eval(engine.rootContext(), page.get(), expression);
-            const QVariant value = eval.evaluate(&undefinedValue);
-            const QString error =
-                eval.error().isValid() ? eval.error().toString() : QString();
-            qWarning().nospace().noquote()
-                << "qml expr '" << expression << "' ->" << value
-                << "undefined:" << undefinedValue
-                << (error.isEmpty() ? QString()
-                                    : u" [error: "_s + error + u"]"_s);
-        }
-        // Bisect with the page's exact delegate shape (Repeater inside a
-        // RowLayout, ColumnLayout delegate, Slider child).
+            << "object-parent walk (" << childTypes.size()
+            << " objects): " << childTypes.join(u", "_s);
+        for (const QObject *child : page->findChildren<QObject *>())
+            if (child->inherits("QQuickRepeater"))
+                qWarning() << "repeater model:" << child->property("model")
+                           << "count:" << child->property("count");
+        // Bisect with the page's exact delegate shape; counted both ways
+        // to show the QObject-parent vs visual-parent split.
         QQmlComponent probeComponent(&engine);
         probeComponent.setData(
             "import QtQuick\nimport QtQuick.Controls\nimport QtQuick.Layouts\n"
@@ -119,18 +107,22 @@ void TestMusicPage::pageInstantiates()
             QUrl(QStringLiteral("qrc:/probe.qml")));
         std::unique_ptr<QObject> probe(probeComponent.create());
         int probeCount = -1;
-        int probeSliders = 0;
+        int probeSlidersObject = 0;
+        int probeSlidersVisual = 0;
         if (probe) {
             for (const QObject *child : probe->findChildren<QObject *>()) {
                 if (child->inherits("QQuickRepeater"))
                     probeCount = child->property("count").toInt();
                 if (child->inherits("QQuickSlider"))
-                    ++probeSliders;
+                    ++probeSlidersObject;
             }
+            if (QQuickItem *probeItem = qobject_cast<QQuickItem *>(probe.get()))
+                probeSlidersVisual = countSliders(probeItem);
         }
         qWarning() << "shape probe: created =" << (probe != nullptr)
                    << "count =" << probeCount
-                   << "sliders =" << probeSliders
+                   << "sliders(object walk) =" << probeSlidersObject
+                   << "sliders(visual walk) =" << probeSlidersVisual
                    << "errors:" << probeComponent.errorString();
     }
     QCOMPARE(sliderCount, controller.bandCount());
