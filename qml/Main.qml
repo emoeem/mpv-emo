@@ -324,6 +324,13 @@ ApplicationWindow {
                                                     : qualityDrawer.open()
                 }
                 IconButton {
+                    // Grid of squares next to the quality star: P8 plugins.
+                    glyph: "\u25A6"
+                    ToolTip.text: qsTr("Plugins")
+                    onClicked: pluginDrawer.opened ? pluginDrawer.close()
+                                                   : pluginDrawer.open()
+                }
+                IconButton {
                     glyph: "\u266A"
                     opacity: mpvItem.muted ? 0.4 : 1
                     ToolTip.text: qsTr("Mute")
@@ -814,6 +821,14 @@ ApplicationWindow {
     // compatController.requestWizard() from a settings page later.
     ImportWizard {
         id: importWizard
+    }
+
+    // P8 plugin drawer: install/update/uninstall upstream plugins; every
+    // operation asks for confirmation inside the drawer itself.
+    PluginDrawer {
+        id: pluginDrawer
+        forwardKeyEvent: root.forwardKeyEvent
+        keyFocusTarget: compatKeys
     }
     Component.onCompleted: {
         if (compatController.firstRunPromptNeeded)
