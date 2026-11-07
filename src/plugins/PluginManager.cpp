@@ -72,8 +72,14 @@ PluginManager::PluginManager(const QString &appDataDir,
 bool PluginManager::loadCatalog()
 {
     QFile file(m_catalogPath);
-    if (!file.open(QIODevice::ReadOnly))
+    if (!file.open(QIODevice::ReadOnly)) {
+        // The constructor emits errorOccurred before main.cpp connects its
+        // logger, so an unreadable catalog must also reach the qWarning log
+        // (same observability as the parse-failure branch below).
+        qWarning("plugins: cannot open plugin catalog %s",
+                 qPrintable(m_catalogPath));
         return false;
+    }
     QString error;
     // Fail closed: a half-readable catalog must not silently drop entries.
     m_catalog = PluginManifest::parseList(file.readAll(), &error);
