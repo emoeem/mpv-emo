@@ -153,19 +153,21 @@ private slots:
     void checkAllRunsForEveryEntry();
 
 private:
-    static QStringList captureFinish(PluginManager &manager, bool *ok,
-                                     QString *message, QString *action);
+    // Records the next operationFinished() results into the caller-owned
+    // variables (which must outlive the manager). Returns nothing: keeping
+    // additional per-call state in a reference-capturing lambda would dangle
+    // once this helper returns.
+    static void captureFinish(PluginManager &manager, bool *ok,
+                              QString *message, QString *action);
 };
 
-QStringList TestPluginManager::captureFinish(PluginManager &manager, bool *ok,
-                                             QString *message, QString *action)
+void TestPluginManager::captureFinish(PluginManager &manager, bool *ok,
+                                      QString *message, QString *action)
 {
-    QStringList names;
     QObject::connect(
         &manager, &PluginManager::operationFinished,
-        [&](const QString &name, const QString &finishedAction, bool success,
+        [&](const QString &, const QString &finishedAction, bool success,
             const QString &finishedMessage) {
-            names.append(name);
             if (action)
                 *action = finishedAction;
             if (ok)
@@ -173,7 +175,6 @@ QStringList TestPluginManager::captureFinish(PluginManager &manager, bool *ok,
             if (message)
                 *message = finishedMessage;
         });
-    return names;
 }
 
 void TestPluginManager::scriptSeparatorMatchesMpvPathList()
