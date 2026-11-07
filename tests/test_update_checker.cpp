@@ -98,7 +98,7 @@ private:
                           "Content-Length: "
                           + QByteArray::number(m_body.size()) + "\r\n\r\n";
         socket->write(head + m_body);
-        socket->disconnectFromServer();
+        socket->disconnectFromHost();
     }
 
     QTcpServer m_server;
@@ -107,6 +107,7 @@ private:
     QList<QByteArray> m_requests;
     QByteArray m_requestLine;
     QByteArray m_userAgent;
+    bool m_holdOpen = false;
     int m_status = 200;
     QByteArray m_reason = "OK";
     QByteArray m_body;
