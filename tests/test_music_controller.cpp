@@ -94,10 +94,10 @@ void TestMusicController::coverArtTrackDoesNotDisqualify()
     // mpv exposes an embedded cover as a video track with albumart=yes
     // (input.rst track-list/N/albumart); common on mp3/flac downloads.
     QVERIFY(MusicController::isAudioMedia(
-        {track(u"audio"_s), track(u"video", true)}, u"song.mp3"_s));
+        {track(u"audio"_s), track(u"video"_s, true)}, u"song.mp3"_s));
     // A real video next to the cover still disqualifies.
     QVERIFY(!MusicController::isAudioMedia(
-        {track(u"video", true), track(u"video", false)}, u"song.mp3"_s));
+        {track(u"video"_s, true), track(u"video"_s, false)}, u"song.mp3"_s));
 }
 
 void TestMusicController::lyricIndexBasics()
