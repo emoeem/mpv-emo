@@ -51,3 +51,8 @@ add_test(NAME test_history_store COMMAND test_history_store)
 set_tests_properties(test_history_store PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 60)
+
+# P8 plugin manifest parsing: pure logic, no git, no network.
+add_executable(test_plugin_manifest test_plugin_manifest.cpp)
+target_link_libraries(test_plugin_manifest PRIVATE emo_core Qt6::Test)
+add_test(NAME test_plugin_manifest COMMAND test_plugin_manifest)
