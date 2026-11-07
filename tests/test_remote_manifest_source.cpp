@@ -146,6 +146,7 @@ private slots:
     void malformedRemoteBodyKeepsThePreviousCache();
     void cachePersistsAcrossInstances();
     void customSourcesAddRemovePersist();
+    void duplicateCustomUrlsLoadOnce();
     void crossSourceNameCollisionFirstSourceWins();
 
 private:
@@ -296,9 +297,17 @@ void TestRemoteManifestSource::mergeUsesLivePluginManagerState()
             // Create the target directory with an entry marker, like a real
             // successful clone of a script plugin.
             const QString target = arguments.last();
-            QDir().mkpath(target);
+            if (!QDir().mkpath(target)) {
+                PluginGitResult failure;
+                failure.standardError = QStringLiteral("mkpath failed");
+                return failure;
+            }
             QFile marker(target + u"/main.lua"_s);
-            marker.open(QIODevice::WriteOnly);
+            if (!marker.open(QIODevice::WriteOnly)) {
+                PluginGitResult failure;
+                failure.standardError = QStringLiteral("marker failed");
+                return failure;
+            }
             marker.write("fake\n");
         }
         if (arguments.value(0) == QLatin1String("rev-parse")) {
@@ -473,6 +482,41 @@ void TestRemoteManifestSource::customSourcesAddRemovePersist()
              u"https://a.example/one.json"_s);
     QCOMPARE(second.sources().at(2).toMap().value(u"url"_s).toString(),
              u"https://b.example/two.json"_s);
+}
+
+void TestRemoteManifestSource::duplicateCustomUrlsLoadOnce()
+{
+    // saveSourceList never writes duplicates, but a hand-edited sources.json
+    // can carry one: it must still load as a single source row.
+    QTemporaryDir dir;
+    const QString listPath =
+        dir.path() + u"/plugin-sources/sources.json"_s;
+    QDir().mkpath(dir.path() + u"/plugin-sources"_s);
+    writeFile(listPath,
+              QByteArrayLiteral("{\"sources\": ["
+                                "\"https://a.example/one.json\", "
+                                "\"https://a.example/one.json\", "
+                                "\"https://b.example/two.json\"]}"));
+
+    FakeFetcher fetcher;
+    RemoteManifestSource source(dir.path(), nullptr, &fetcher);
+    QCOMPARE(source.sources().size(), 3); // default + 2 deduped custom rows
+    QVERIFY(!sourceRowNamed(source.sources(), u"https://a.example/one.json"_s)
+                 .isEmpty());
+    QVERIFY(!sourceRowNamed(source.sources(), u"https://b.example/two.json"_s)
+                 .isEmpty());
+
+    // And the deduped list persists without the duplicate.
+    QVERIFY(source.addSource(QUrl(u"https://c.example/three.json"_s)));
+    FakeFetcher secondFetcher;
+    RemoteManifestSource second(dir.path(), nullptr, &secondFetcher);
+    QCOMPARE(second.sources().size(), 4);
+    int oneCount = 0;
+    for (const QVariant &value : second.sources())
+        oneCount +=
+            value.toMap().value(u"url"_s).toString()
+            == u"https://a.example/one.json"_s;
+    QCOMPARE(oneCount, 1);
 }
 
 void TestRemoteManifestSource::crossSourceNameCollisionFirstSourceWins()

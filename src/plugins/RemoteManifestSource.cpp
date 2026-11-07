@@ -114,12 +114,19 @@ void RemoteManifestSource::loadSourceList()
                                    .object()
                                    .value(QLatin1String("sources"))
                                    .toArray();
+    QSet<QString> seen;
+    for (const SourceEntry &source : m_sources)
+        seen.insert(source.url.toString());
     for (const QJsonValue &value : sources) {
         const QUrl url(value.toString());
         // Tolerate garbage and a persisted copy of the default: neither
-        // becomes a second source row.
-        if (!isFetchableUrl(url) || url == defaultSource.url)
+        // becomes a second source row. A repeated custom URL (only writable
+        // by hand-editing sources.json — the app never saves duplicates)
+        // loads once too: duplicates would mean duplicate rows and
+        // duplicate network fetches.
+        if (!isFetchableUrl(url) || seen.contains(url.toString()))
             continue;
+        seen.insert(url.toString());
         SourceEntry entry;
         entry.url = url;
         m_sources.append(entry);
@@ -372,7 +379,10 @@ void RemoteManifestSource::onFetchFinished(
                                           "last cached list")
                                .arg(url.toString(), result.error));
     }
-    emit changed();
+    // No trailing changed() here: every observable transition already emits —
+    // rebuildEntries() when entries/sources move, startNextFetch() when a
+    // fetch starts or the queue drains. Emitting again would reset the
+    // drawer's ListView models up to three times per fetched source.
     startNextFetch();
 }
 
