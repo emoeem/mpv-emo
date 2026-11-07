@@ -61,6 +61,8 @@ qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/MusicPage.qml
     qml/LibraryDrawer.qml
     qml/PluginDrawer.qml
+    qml/InterpolationPanel.qml
+    qml/IccPanel.qml
 )
 # P8 plugin store: the built-in manager.json-compatible catalog, read by
 # PluginManager from qrc:/assets/plugins/builtin_sources.json (see
