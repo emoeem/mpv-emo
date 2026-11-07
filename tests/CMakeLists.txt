@@ -36,6 +36,11 @@ set_tests_properties(test_quality_controller PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120)
 
+# P5 v2 interpolation decision table: pure logic, no mpv, no GUI.
+add_executable(test_interpolation_decision test_interpolation_decision.cpp)
+target_link_libraries(test_interpolation_decision PRIVATE emo_core Qt6::Test)
+add_test(NAME test_interpolation_decision COMMAND test_interpolation_decision)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.
