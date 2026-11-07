@@ -30,6 +30,11 @@ using namespace Qt::Literals::StringLiterals;
 //  - the "ffmpeg missing" degradation path uses a binary path that cannot
 //    exist.
 // The stub needs a POSIX shell to exec the script; CI runs on Linux.
+//
+// Helpers return void with an out-parameter: QVERIFY expands to a bare
+// `return;` on failure, which does not compile in a function returning
+// QString (helper failures are recorded and surface through the calling
+// test, so the pattern stays correct).
 namespace {
 
 bool shellAvailable()
@@ -50,11 +55,11 @@ QByteArray stubImageBytes()
 }
 
 // Writes the stub image file and the ffmpeg stub script into |dir| and
-// returns the script path. The stub appends every argument vector it
-// receives to <dir>/invocations.log so tests can assert the exact command
-// lines (one line per invocation, arguments joined with spaces).
-QString writeStub(const QTemporaryDir &dir, bool failGenerate = false,
-                  bool badVersion = false)
+// hands the script path back via |scriptPath|. The stub appends every
+// argument vector it receives to <dir>/invocations.log so tests can assert
+// the exact command lines (one line per invocation, space-joined args).
+void writeStub(const QTemporaryDir &dir, QString *scriptPath,
+               bool failGenerate = false, bool badVersion = false)
 {
     const QString jpegPath = dir.filePath(u"stub-image.bin"_s);
     QFile jpeg(jpegPath);
@@ -113,18 +118,18 @@ QString writeStub(const QTemporaryDir &dir, bool failGenerate = false,
     QVERIFY(file.setPermissions(QFile::ReadOwner | QFile::ExeOwner
                                 | QFile::ReadGroup | QFile::ExeGroup
                                 | QFile::ReadOther | QFile::ExeOther));
-    return script;
+    *scriptPath = script;
 }
 
 // Creates a fake media file (existence is all the service stats).
-QString writeMediaFile(const QTemporaryDir &dir)
+void writeMediaFile(const QTemporaryDir &dir, QString *pathOut)
 {
     const QString path = dir.filePath(u"movie.mkv"_s);
     QFile file(path);
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write("not really a video\n");
     file.close();
-    return path;
+    *pathOut = path;
 }
 
 QStringList readInvocations(const QString &logPath)
@@ -143,9 +148,11 @@ QStringList readInvocations(const QString &logPath)
 }
 
 // Writes a two-entry library.json — |realPath| as "aaa" (row 0), a
-// nonexistent path as "zzz" (row 1) — and returns the storage path. Titles
-// control the model's sort order, so row indices are deterministic.
-QString writeLibraryFile(const QTemporaryDir &dir, const QString &realPath)
+// nonexistent path as "zzz" (row 1) — and hands the storage path back via
+// |filePathOut|. Titles control the model's sort order, so row indices are
+// deterministic.
+void writeLibraryFile(const QTemporaryDir &dir, const QString &realPath,
+                      QString *filePathOut)
 {
     QJsonObject real;
     real.insert(u"path"_s, realPath);
@@ -171,7 +178,7 @@ QString writeLibraryFile(const QTemporaryDir &dir, const QString &realPath)
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
     file.close();
-    return filePath;
+    *filePathOut = filePath;
 }
 
 } // namespace
@@ -314,7 +321,9 @@ void TestThumbnailService::probeAcceptsVersionBanner()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    ThumbnailService service(dir.filePath(u"thumbs"_s), writeStub(dir));
+    QString stubPath;
+    writeStub(dir, &stubPath);
+    ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
 
     QSignalSpy spy(&service, &ThumbnailService::availabilityChanged);
     service.probe();
@@ -329,8 +338,9 @@ void TestThumbnailService::probeRejectsNonFfmpegBanner()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    ThumbnailService service(dir.filePath(u"thumbs"_s),
-                             writeStub(dir, false, /*badVersion=*/true));
+    QString stubPath;
+    writeStub(dir, &stubPath, false, /*badVersion=*/true);
+    ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
 
     QSignalSpy spy(&service, &ThumbnailService::availabilityChanged);
     service.probe();
@@ -359,14 +369,17 @@ void TestThumbnailService::requestGeneratesThumbnailThroughStubChain()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
     const qint64 mtimeMs =
         QFileInfo(mediaPath).lastModified().toMSecsSinceEpoch();
     const QString expectedCache =
         ThumbnailService::cachePathFor(dir.filePath(u"thumbs"_s), mediaPath,
                                        mtimeMs);
 
-    ThumbnailService service(dir.filePath(u"thumbs"_s), writeStub(dir));
+    QString stubPath;
+    writeStub(dir, &stubPath);
+    ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
     service.probe();
     QTRY_VERIFY(service.isAvailable());
 
@@ -387,9 +400,9 @@ void TestThumbnailService::requestGeneratesThumbnailThroughStubChain()
         readInvocations(dir.filePath(u"invocations.log"_s));
     QCOMPARE(invocations.size(), 3);
     QCOMPARE(invocations.at(0), u"-version"_s);
-    QCOMPARE(invocations.at(1), u"-i " + mediaPath);
+    QCOMPARE(invocations.at(1), u"-i "_s + mediaPath);
     QVERIFY(invocations.at(2).contains(u"-ss 12.000"_s));
-    QVERIFY(invocations.at(2).contains(u"-i " + mediaPath));
+    QVERIFY(invocations.at(2).contains(u"-i "_s + mediaPath));
     QVERIFY(invocations.at(2).contains(u"-frames:v 1"_s));
     QVERIFY(invocations.at(2).contains(u"-vf scale=320:-1"_s));
     QVERIFY(invocations.at(2).endsWith(expectedCache));
@@ -407,11 +420,13 @@ void TestThumbnailService::requestFailureIsNotRetried()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
     const QString logPath = dir.filePath(u"invocations.log"_s);
 
-    ThumbnailService service(dir.filePath(u"thumbs"_s),
-                             writeStub(dir, /*failGenerate=*/true));
+    QString stubPath;
+    writeStub(dir, &stubPath, /*failGenerate=*/true);
+    ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
     service.probe();
     QTRY_VERIFY(service.isAvailable());
 
@@ -436,7 +451,8 @@ void TestThumbnailService::requestWithMissingBinaryDegradesGracefully()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
     const QString cacheDir = dir.filePath(u"thumbs"_s);
 
     ThumbnailService service(
@@ -457,7 +473,8 @@ void TestThumbnailService::cacheHitIsServedWithoutFfmpeg()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
     const QString cacheDir = dir.filePath(u"thumbs"_s);
     QDir().mkpath(cacheDir);
     const QString expectedCache = ThumbnailService::cachePathFor(
@@ -490,8 +507,10 @@ void TestThumbnailService::modelExposesThumbnailRoleAndDataChanged()
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
-    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
+    QString libraryPath;
+    writeLibraryFile(dir, mediaPath, &libraryPath);
     const QString cacheDir = dir.filePath(u"thumbs"_s);
     const QString expectedCache = ThumbnailService::cachePathFor(
         cacheDir, mediaPath,
@@ -500,7 +519,9 @@ void TestThumbnailService::modelExposesThumbnailRoleAndDataChanged()
     LibraryStore store(libraryPath);
     QCOMPARE(store.entryList().size(), 2);
 
-    ThumbnailService service(cacheDir, writeStub(dir));
+    QString stubPath;
+    writeStub(dir, &stubPath);
+    ThumbnailService service(cacheDir, stubPath);
     service.probe();
     QTRY_VERIFY(service.isAvailable());
 
@@ -550,8 +571,10 @@ void TestThumbnailService::modelKeepsPlaceholderWhenServiceUnavailable()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
-    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
+    QString libraryPath;
+    writeLibraryFile(dir, mediaPath, &libraryPath);
 
     LibraryStore store(libraryPath);
     ThumbnailService service(
@@ -585,8 +608,10 @@ void TestThumbnailService::modelWithoutServiceHasEmptyThumbnailRole()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString mediaPath = writeMediaFile(dir);
-    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
+    QString libraryPath;
+    writeLibraryFile(dir, mediaPath, &libraryPath);
 
     LibraryStore store(libraryPath);
     LibraryModel model(&store); // no ThumbnailService: legacy wiring
