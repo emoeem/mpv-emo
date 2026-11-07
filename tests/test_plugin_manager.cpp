@@ -164,10 +164,15 @@ private:
 void TestPluginManager::captureFinish(PluginManager &manager, bool *ok,
                                       QString *message, QString *action)
 {
+    // Capture the caller-owned pointers BY VALUE: a by-reference capture
+    // would hold references to this helper's own stack parameters, which die
+    // the moment the helper returns (the first signal write then reads
+    // dangling stack — false results, then SIGSEGV). The pointees live in
+    // the test function and outlive the manager.
     QObject::connect(
         &manager, &PluginManager::operationFinished,
-        [&](const QString &, const QString &finishedAction, bool success,
-            const QString &finishedMessage) {
+        [ok, message, action](const QString &, const QString &finishedAction,
+                              bool success, const QString &finishedMessage) {
             if (action)
                 *action = finishedAction;
             if (ok)
