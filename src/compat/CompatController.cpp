@@ -1,5 +1,6 @@
 #include "compat/CompatController.h"
 
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 
@@ -178,6 +179,10 @@ QString CompatController::ensureOwnInputConf()
 {
     const QString path = m_appDataDir + QStringLiteral("/input.conf");
     if (!QFile::exists(path)) {
+        // AppDataLocation is not auto-created on a fresh machine; without
+        // this the open below fails and mpv would fall back to the user's
+        // own input.conf.
+        QDir().mkpath(m_appDataDir);
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly)) {
             // input-conf pointing at a missing file makes mpv fall back to

@@ -1,3 +1,5 @@
+#include <clocale>
+
 #include <QCommandLineParser>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -21,6 +23,12 @@
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+    // libmpv refuses to initialize unless LC_NUMERIC is "C" (it parses
+    // numbers locale-independently); Qt switches the locale from the
+    // environment during QGuiApplication construction, so this must happen
+    // after the app object exists.
+    std::setlocale(LC_ALL, "");
+    std::setlocale(LC_NUMERIC, "C");
     QGuiApplication::setOrganizationName(QStringLiteral("EmoPlay"));
     QGuiApplication::setApplicationName(QStringLiteral("EmoPlay"));
     QGuiApplication::setApplicationVersion(QString::fromLatin1(EMOPLAY_VERSION));
