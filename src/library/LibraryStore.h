@@ -90,7 +90,8 @@ public:
     // convention used by MpvEngine::loadFile) to the folder list. Returns
     // false when the path is not an existing directory or is already in the
     // list. Persisting aside, this kicks off a scan so the UI reflects the
-    // new folder without a second click (a no-op while a scan runs).
+    // new folder without a second click (requests arriving mid-scan are
+    // chained, see requestScan).
     Q_INVOKABLE bool addDirectory(const QString &pathOrUrl);
     // Remove the folder and every entry under it. Unknown folders are a
     // no-op.

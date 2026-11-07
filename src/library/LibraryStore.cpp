@@ -69,7 +69,7 @@ LibraryStore::LibraryStore(const QString &filePath, QObject *parent)
 {
     // The worker hands QList<LibraryEntry> over a queued connection; make
     // sure the metatype is registered regardless of connect() style.
-    qRegisterMetaType<QList<LibraryEntry>>("QList<LibraryEntry>");
+    qRegisterMetaType<QList<LibraryEntry>>();
 
     m_scanThread = new QThread(this);
     m_scanThread->setObjectName(QStringLiteral("library-scan"));
@@ -118,7 +118,7 @@ bool LibraryStore::addDirectory(const QString &pathOrUrl)
     emit directoriesChanged();
     save();
 
-    // Reflect the new folder immediately; a no-op while a scan runs.
+    // Reflect the new folder immediately; mid-scan requests are chained.
     requestScan();
     return true;
 }
