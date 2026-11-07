@@ -36,6 +36,7 @@ add_library(emo_core STATIC
     src/quality/QualityProfileEngine.cpp
     src/quality/QualityController.cpp
     src/quality/InterpolationDecision.cpp
+    src/quality/InterpolationController.cpp
     src/music/LrcParser.cpp
     src/music/MusicController.cpp
     src/library/LibraryStore.cpp
