@@ -43,6 +43,7 @@ add_library(emo_core STATIC
     src/library/LibraryStore.cpp
     src/library/LibraryScanWorker.cpp
     src/library/LibraryModel.cpp
+    src/library/ThumbnailService.cpp
     src/plugins/PluginManifest.cpp
     src/plugins/PluginGitRunner.cpp
     src/plugins/PluginManager.cpp
