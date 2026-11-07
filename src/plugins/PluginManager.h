@@ -48,8 +48,8 @@ public:
     // |appDataDir| is EmoPlay's AppDataLocation: the plugin root is
     // <appDataDir>/plugins and per-plugin state is <appDataDir>/plugins/
     // state.json. |catalogPath| is a manager.json-style catalog readable via
-    // QFile (the app passes "qrc:/plugins/builtin_sources.json"; tests pass
-    // a source-tree file).
+    // QFile (the app passes "qrc:/assets/plugins/builtin_sources.json";
+    // tests pass a source-tree file).
     explicit PluginManager(const QString &appDataDir,
                            const QString &catalogPath,
                            QObject *parent = nullptr);
