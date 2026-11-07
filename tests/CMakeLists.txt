@@ -49,6 +49,14 @@ add_executable(test_lrc_parser test_lrc_parser.cpp)
 target_link_libraries(test_lrc_parser PRIVATE emo_core Qt6::Test)
 add_test(NAME test_lrc_parser COMMAND test_lrc_parser)
 
+# P7 music-mode decision rules: pure logic, no mpv needed for these cases.
+add_executable(test_music_controller test_music_controller.cpp)
+target_link_libraries(test_music_controller PRIVATE emo_core Qt6::Test)
+add_test(NAME test_music_controller COMMAND test_music_controller)
+set_tests_properties(test_music_controller PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 60)
+
 add_executable(test_history_store test_history_store.cpp)
 target_link_libraries(test_history_store PRIVATE emo_core Qt6::Test)
 # HistoryStore is pure Qt logic (plus an idle libmpv core); runs headless.
