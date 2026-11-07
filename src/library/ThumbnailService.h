@@ -105,6 +105,9 @@ private:
     // finished/errorOccurred/timeout wins, later callbacks are no-ops).
     void finishJob(bool success);
     void dropJobProcess();
+    // Destructor-only: disconnect + kill + reap, so a dying child can never
+    // reenter finishJob()/pump() from waitForFinished's event dispatch.
+    void teardownProcess(QProcess *process);
 
     QString m_cacheDir;
     QString m_ffmpegBinary;

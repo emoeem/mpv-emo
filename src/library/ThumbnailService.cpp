@@ -39,12 +39,19 @@ ThumbnailService::ThumbnailService(const QString &cacheDir,
 
 ThumbnailService::~ThumbnailService()
 {
-    // QProcess children are parented to us and killed on destruction; wait
-    // briefly so a running child does not report into a dead object.
-    if (m_jobProcess) {
-        m_jobProcess->kill();
-        m_jobProcess->waitForFinished(500);
-    }
+    // QProcess children are parented to us; QObject cleanup removes them
+    // when we go away. kill() + waitForFinished() alone would REENTER the
+    // callbacks: waitForFinished dispatches the killed child's finished/
+    // errorOccurred directly, whose handler runs finishJob()->pump() —
+    // hatching a fresh ffmpeg child in the middle of our own destruction
+    // (the duration-probe stage even advances to startGeneration), which
+    // cleanup would then kill outright. Disconnect first so the teardown is
+    // silent and nothing new is ever started while we die.
+    m_jobTimeout.stop();
+    if (m_jobProcess)
+        teardownProcess(m_jobProcess);
+    if (m_probeProcess)
+        teardownProcess(m_probeProcess);
 }
 
 QString ThumbnailService::cachePathFor(const QString &cacheDir,
@@ -125,8 +132,14 @@ void ThumbnailService::requestThumbnail(const QString &path)
     }
 
     // Generation needs ffmpeg; without it the request is dropped and the UI
-    // keeps its type icons (graceful degradation).
-    if (!m_available || m_queue.contains(path) || m_failed.contains(path))
+    // keeps its type icons (graceful degradation). The active job's path is
+    // deduped too: it left the queue when its chain started, so a repeat
+    // request (the model re-requests the visible list on every rebuild)
+    // would otherwise requeue and re-run the whole two-process chain for
+    // the same cache key — wasted subprocess work and duplicate
+    // thumbnailReady/dataChanged signals.
+    if (!m_available || path == m_jobPath || m_queue.contains(path)
+        || m_failed.contains(path))
         return;
     m_queue.enqueue(path);
     pump();
@@ -255,4 +268,15 @@ void ThumbnailService::dropJobProcess()
         return;
     m_jobProcess->deleteLater();
     m_jobProcess = nullptr;
+}
+
+// Destructor-only quiesce: cut the child's callbacks, kill it, and wait
+// briefly for the OS to reap it (kill() on an already-dead child is a
+// no-op). After disconnect() no straggler finished/errorOccurred can reach
+// our slots during waitForFinished's internal event dispatch.
+void ThumbnailService::teardownProcess(QProcess *process)
+{
+    disconnect(process, nullptr, this, nullptr);
+    process->kill();
+    process->waitForFinished(500);
 }

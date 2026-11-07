@@ -58,8 +58,11 @@ QByteArray stubImageBytes()
 // hands the script path back via |scriptPath|. The stub appends every
 // argument vector it receives to <dir>/invocations.log so tests can assert
 // the exact command lines (one line per invocation, space-joined args).
+// |durationSleepSeconds| pauses the duration-probe stage, opening a
+// deterministic in-flight window for the queueing/teardown tests.
 void writeStub(const QTemporaryDir &dir, QString *scriptPath,
-               bool failGenerate = false, bool badVersion = false)
+               bool failGenerate = false, bool badVersion = false,
+               int durationSleepSeconds = 0)
 {
     const QString jpegPath = dir.filePath(u"stub-image.bin"_s);
     QFile jpeg(jpegPath);
@@ -78,6 +81,7 @@ void writeStub(const QTemporaryDir &dir, QString *scriptPath,
                    "JPEG='%2'\n"
                    "FAIL_GENERATE='%3'\n"
                    "BAD_VERSION='%4'\n"
+                   "SLEEP='%5'\n"
                    "\n"
                    "printf '%s\\n' \"$*\" >> \"$LOG\"\n"
                    "\n"
@@ -106,13 +110,15 @@ void writeStub(const QTemporaryDir &dir, QString *scriptPath,
                    "esac\n"
                    "\n"
                    "# Duration probe: real ffmpeg exits 1 without an output file.\n"
+                   "sleep \"$SLEEP\"\n"
                    "echo \"Input #0, matroska, from '$2':\" >&2\n"
                    "echo \"  Duration: 00:02:00.00, start: 0.000000,"
                    " bitrate: 1000 kb/s\" >&2\n"
                    "echo \"At least one output file must be specified\" >&2\n"
                    "exit 1\n")
                    .arg(logPath, jpegPath, failGenerate ? u"1"_s : u"0"_s,
-                        badVersion ? u"1"_s : u"0"_s)
+                        badVersion ? u"1"_s : u"0"_s,
+                        QString::number(durationSleepSeconds))
                    .toUtf8());
     file.close();
     QVERIFY(file.setPermissions(QFile::ReadOwner | QFile::ExeOwner
@@ -122,9 +128,10 @@ void writeStub(const QTemporaryDir &dir, QString *scriptPath,
 }
 
 // Creates a fake media file (existence is all the service stats).
-void writeMediaFile(const QTemporaryDir &dir, QString *pathOut)
+void writeMediaFile(const QTemporaryDir &dir, QString *pathOut,
+                    const QString &name = u"movie.mkv"_s)
 {
-    const QString path = dir.filePath(u"movie.mkv"_s);
+    const QString path = dir.filePath(name);
     QFile file(path);
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write("not really a video\n");
@@ -214,6 +221,10 @@ private slots:
     void modelExposesThumbnailRoleAndDataChanged();
     void modelKeepsPlaceholderWhenServiceUnavailable();
     void modelWithoutServiceHasEmptyThumbnailRole();
+
+    // ---- review hardening: in-flight dedupe + destructor quiesce -------
+    void requestThumbnailIsNotRequeuedWhileInFlight();
+    void destructorDoesNotHatchChildrenForQueuedWork();
 };
 
 void TestThumbnailService::cachePathForIsSha1OfPathAndMtime()
@@ -620,6 +631,86 @@ void TestThumbnailService::modelWithoutServiceHasEmptyThumbnailRole()
     QCOMPARE(model.data(model.index(0, 0), LibraryModel::ThumbnailRole)
                  .toString(),
              QString());
+}
+
+void TestThumbnailService::requestThumbnailIsNotRequeuedWhileInFlight()
+{
+    if (!shellAvailable())
+        QSKIP("the ffmpeg stub script needs a POSIX shell");
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
+    const QString logPath = dir.filePath(u"invocations.log"_s);
+    const QString expectedCache = ThumbnailService::cachePathFor(
+        dir.filePath(u"thumbs"_s), mediaPath,
+        QFileInfo(mediaPath).lastModified().toMSecsSinceEpoch());
+
+    // A 1 s duration-probe sleep opens a wide in-flight window.
+    QString stubPath;
+    writeStub(dir, &stubPath, false, false, /*durationSleepSeconds=*/1);
+    ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
+    service.probe();
+    QTRY_VERIFY(service.isAvailable());
+
+    QSignalSpy readySpy(&service, &ThumbnailService::thumbnailReady);
+    service.requestThumbnail(mediaPath);
+    // Chain in flight (duration probe asleep); the repeat request is what
+    // the model sends on every rebuild — it must be dropped, not requeued.
+    QTRY_COMPARE(readInvocations(logPath).size(), 2); // -version + -i
+    service.requestThumbnail(mediaPath);
+    QTRY_COMPARE(readySpy.size(), 1); // the first chain completes
+    QCOMPARE(service.cachedThumbnailPath(mediaPath), expectedCache);
+
+    // No second chain for the same cache key: still exactly three stub
+    // invocations (version, duration, generate) and one ready signal.
+    QTest::qWait(300);
+    QCOMPARE(readInvocations(logPath).size(), 3);
+    QCOMPARE(readySpy.size(), 1);
+}
+
+void TestThumbnailService::destructorDoesNotHatchChildrenForQueuedWork()
+{
+    if (!shellAvailable())
+        QSKIP("the ffmpeg stub script needs a POSIX shell");
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QString mediaPath;
+    writeMediaFile(dir, &mediaPath);
+    QString secondPath;
+    writeMediaFile(dir, &secondPath, u"second.mkv"_s);
+    const QString logPath = dir.filePath(u"invocations.log"_s);
+    const QString abortedCache = ThumbnailService::cachePathFor(
+        dir.filePath(u"thumbs"_s), mediaPath,
+        QFileInfo(mediaPath).lastModified().toMSecsSinceEpoch());
+
+    QString stubPath;
+    writeStub(dir, &stubPath, false, false, /*durationSleepSeconds=*/1);
+    QSignalSpy *readySpy = nullptr;
+    {
+        ThumbnailService service(dir.filePath(u"thumbs"_s), stubPath);
+        service.probe();
+        QTRY_VERIFY(service.isAvailable());
+        readySpy = new QSignalSpy(&service, &ThumbnailService::thumbnailReady);
+        service.requestThumbnail(mediaPath); // chain in flight (asleep)
+        service.requestThumbnail(secondPath); // queued, never started
+        QTRY_COMPARE(readInvocations(logPath).size(), 2);
+        QCOMPARE(readySpy->size(), 0);
+        // Destroy with a chain in flight and work queued: waitForFinished()
+        // must not deliver the killed child's callbacks into finishJob()/
+        // pump() — no generation stage may hatch and the queued item must
+        // stay untouched.
+    }
+    QTest::qWait(500);
+    // The killed duration probe left the log at two lines; a reentering
+    // teardown would advance to startGeneration (line 3) and then start the
+    // queued second item (line 4).
+    QCOMPARE(readInvocations(logPath).size(), 2);
+    // The aborted chain never completed and never emitted ready.
+    delete readySpy;
+    QVERIFY(!QFileInfo(abortedCache).exists());
 }
 
 QTEST_GUILESS_MAIN(TestThumbnailService)
