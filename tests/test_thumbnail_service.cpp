@@ -432,18 +432,19 @@ void TestThumbnailService::requestFailureIsNotRetried()
 
     QSignalSpy readySpy(&service, &ThumbnailService::thumbnailReady);
     service.requestThumbnail(mediaPath);
-    // Duration probe + failed frame grab, then the queue stops.
-    QTRY_COMPARE(readInvocations(logPath).size(), 2);
+    // Three stub invocations: the -version probe, the duration probe and
+    // the failed frame grab — then the queue stops.
+    QTRY_COMPARE(readInvocations(logPath).size(), 3);
     QCOMPARE(readySpy.size(), 0);
     QCOMPARE(service.cachedThumbnailPath(mediaPath), QString());
 
-    // No retry loop: still exactly two invocations later, and a repeated
+    // No retry loop: still exactly three invocations later, and a repeated
     // request does not requeue the failed path.
     QTest::qWait(200);
-    QCOMPARE(readInvocations(logPath).size(), 2);
+    QCOMPARE(readInvocations(logPath).size(), 3);
     service.requestThumbnail(mediaPath);
     QTest::qWait(200);
-    QCOMPARE(readInvocations(logPath).size(), 2);
+    QCOMPARE(readInvocations(logPath).size(), 3);
     QCOMPARE(readySpy.size(), 0);
 }
 
