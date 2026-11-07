@@ -13,7 +13,7 @@
 | P4 | mpv 配置兼容层（扫描/导入/回写） | **done**（扫描/导入/向导/脚本与 input.conf 生效已落地并附单测，批次 5 收尾 CI 全绿终审通过；GUI 键位编辑器与设置页入口、回写属后续批次） | Linux CI 构建 + 单测（ctest 8/8）+ Xvfb QML 冒烟 success（评审修复后 head `a35774a`，run 42296377325）；批次记录见 execution-log 批次 5；T13–T19 commits：`d815234` 扫描器、`9df56d0` 导入规则、`1c480ed` settings 持久化、`85e74c3` 按键转发、`d75b6bb` CompatController、`6cfb1c9` 启动序、`9848ceb` 向导；设计见 architecture.md「配置兼容层」 |
 | P5 | 高级画质（滤镜/HDR/tone-mapping UI） | **in-progress** | v1 子集已落地（CI 全绿 head `167dc5b`，run 42305521632）：Anime4K/SSimSuperRes 着色器可挂载（分辨率分组决策表 + 面板管理列表）、HDR→SDR tone-mapping 可配置（auto/bt.2390/mobius/hable，spline/bt.2446a 为 gpu-next 专属、当前 vo=libmpv 管线不可用）、画质集中 UI（控制栏 ✦ 抽屉）、掉帧自动降档、settings.json quality 节持久化；单测 11/11（含 QualityProfileEngine 决策表与 settings quality 读写）。**未含项**：RIFE/VS 补帧、ICC 自动加载、着色器商店、GPU 档位检测/压制组词库、off 档恢复用户导入值（现为 mpv 默认值）。设计见 architecture.md「画质引擎（P5 v1）」 |
 | P6 | 媒体库与文件管理 | pending | — |
-| P7 | 音乐模式（歌词/EQ） | pending | — |
+| P7 | 音乐模式（歌词/EQ） | **in-progress** | v1 已落地（nativeization-plan music-mode + equalizer-gui 简化版）：`.lrc` 解析（多时间戳/BOM/CRLF/[ti][ar][al]，同名文件规则）、纯音频判定（track-list 无 video 且音频扩展名，albumart 封面轨不排除）、10 段均衡器（`af=equalizer=...` 链 + 平直/低音增强/人声/现场预设 + music 节持久化，superequalizer 经 mpv 0.37/FFmpeg 6.1 源码核实后弃用）、`qml/MusicPage.qml`（Loader 按 audioMode 切换、歌词高亮滚动、EQ 折叠面板）、单测含真引擎 af 回读与离屏 QML 实例化。**未含项**：专辑浏览/封面墙、gapless/loop 行为、passthrough 互锁、EQ 防抖。设计见 architecture.md「音乐模式（P7 v1）」 |
 | P8 | 插件生态（脚本/着色器管理；格式目标 = manager.json 兼容，见 nativeization-plan.md §4） | pending | — |
 | P9 | 平台集成（打包/更新/系统集成） | **in-progress** | 打包/发布管线已落地：release.yml 三平台构建（Linux AppImage / Windows zip / macOS dmg）+ tag push 自动发布，v0.1.0-alpha prerelease 已发布（execution-log 批次 4）；**签名/公证未做**（Windows 无 Authenticode、macOS 仅 ad-hoc 签名），更新器与系统集成（文件关联/协议关联等）未做 |
 | P10 | 全面测试与发布 | pending | — |
@@ -48,6 +48,11 @@
 | T24 | P5：QualityController 应用路径（change-list 挂载、inert-at-off、自动降档）+ headless 单测 | done | 9a191ba（评审修复 cc9472c：MPV_FORMAT_STRING setProperty 段错误） |
 | T25 | P5：main.cpp 启动接线（着色器目录按导入决策、QML 桥）+ deband 偏好 | done | 6d471be、7c643c9 |
 | T26 | P5：画质设置抽屉（内容类型/档位/缩放/deband/tone-mapping/着色器管理） | done | 167dc5b |
+| T27 | P7：LrcParser（.lrc 解析 + 同名匹配规则）+ 单测 | done | d88afed |
+| T28 | P7：MpvEngine 观察 metadata(NODE) | done | 805811a |
+| T29 | P7：MusicController（纯音频判定 + 歌词行镜像）+ 单测 | done | 6233547 |
+| T30 | P7：10 段均衡器（af 链 + 预设 + music 节持久化）+ 单测（含真引擎回读） | done | db906ea |
+| T31 | P7：MusicPage.qml + Main.qml 入口 + main.cpp 接线 + 离屏 QML 实例化测试 | done | 712cf51 |
 
 ## 后续批次（按优先级）
 
@@ -55,4 +60,5 @@
 2. **P1 收尾**：Windows（MSVC + 预编译 libmpv）/ macOS（brew mpv）CI 矩阵。
 3. **P4 收尾**：GUI 键位编辑器、设置页导入入口（`compatController.requestWizard`）、配置回写；导入/向导/按键转发的实机交互验证。
 4. **P5 收尾**：off 档让位快照（恢复用户导入值而非 mpv 默认）、GPU 档位检测与压制组词库、着色器商店（P8 资产分发）、RIFE/VS 补帧评估；画质面板与自动降档的实机交互验证。
-5. **工程质量**：clang-format 固化 + CI 格式检查；QML 交互的集成测试（xvfb + 真实媒体样本）；崩溃日志与 `mpv log-message` 收集。
+5. **P7 收尾**：专辑浏览/封面墙、gapless-audio/loop 行为语义、EQ 与比特流直通互锁、EQ 滑条防抖（每步重建 af 链的简化）、歌词 `[offset:]` 标签；音乐页与歌词高亮的实机交互验证。
+6. **工程质量**：clang-format 固化 + CI 格式检查；QML 交互的集成测试（xvfb + 真实媒体样本）；崩溃日志与 `mpv log-message` 收集。

@@ -129,3 +129,20 @@
   3. **demuxer-cache-dir 缺席写路径重定向**（`66d1c3b`）：用户值（如 `~~` 相对路径）+ cache-on-disk 会把缓存写进用户 mpv 目录，违反「绝不写用户目录」原则；其默认值本指向系统缓存目录，仅显式值触发——重定向到 AppData/demuxer_cache，与其余写路径一致。
   4. **ensureOwnInputConf 误标 const**（`a35774a`）：Qt 信号方法非 const 成员，const 函数内 emit `errorOccurred` 无法编译（discards qualifiers）；该函数本就写文件、可能 emit——去 const。
 - **风险与待验证**：无本地编译，CI 只验证「构建 + 单测（8/8）+ QML 能启动」；真实 `~/.config/mpv` 的导入、向导交互、按键转发覆盖面（Slider 焦点消费方向键等已知边界见 architecture.md）待实机验证；profile 定义与 `profile=` 引用不应用（原生等价物归 P5）；GUI 键位编辑器、设置页入口（`compatController.requestWizard`）、配置回写属后续批次
+
+## 2026-11-07 · 批次 6：P7 音乐模式 v1（music-mode + equalizer-gui 简化版）
+
+- **任务**：T27–T31（nativeization-plan music-mode + equalizer-gui 简化版；分支 `feat/p7-music-mode`，一个功能一个 commit）
+- **产出**：
+  - 歌词解析：`src/music/LrcParser.{h,cpp}`（T27，`d88afed`）纯逻辑 .lrc 解析（`[mm:ss(.xx/.xxx)]` 1–3 位小数、多时间戳行、`[ti]/[ar]/[al]`、UTF-8 BOM、CRLF；无时间戳行与未知标签跳过）+ `lrcCandidates()` 同名 .lrc（→.LRC）匹配规则；test_lrc_parser 全覆盖
+  - 引擎观察：MpvEngine `metadataChanged(QVariantMap)`（T28，`805811a`）照 P5 模式观察 metadata(NODE)，不可用（NONE）清空镜像
+  - 音乐模式服务：`src/music/MusicController.{h,cpp}`（T29，`6233547`）纯音频判定（track-list 无 video **且** 音频扩展名；`albumart` 封面轨不排除——mpv 0.37 input.rst `track-list/N/albumart` 核实）+ 同名 .lrc 解析 + `lyrics`/`lyricIndex`（time-pos 驱动）+ metadata 中继；判定/索引为纯函数可无引擎单测
+  - 均衡器 v1（T30，`db906ea`）：10 段（31.25 Hz–16 kHz，`equalizer=f=..:t=q:w=1.4:g=<dB>` 链）+ 预设（flat/bass/vocal/live，拖动转 custom）+ settings.json `music` 节持久化（AppSettings 复用 QSaveFile 契约）；inert 规则（未启用绝不写 af）；单测含真引擎 `af` 回读（m_option.c name/params 节点序列化）——mpv 0.37 + libavfilter 接受该链的运行时证明
+  - QML 与接线（T31，`712cf51`）：`qml/MusicPage.qml` 独立文件（大标题 media-title、歌词高亮滚动、EQ 折叠面板，命令式同步）；Main.qml 仅加 `musicMode` 只读绑定 + Loader 挂载点；main.cpp 构造 MusicController（共享 compat 层 AppSettings）+ 上下文属性；test_music_page 离屏实例化（CI 冒烟不触发 Loader，页面需自有启动测试）
+- **mpv/FFmpeg 核实结论**（本地无工具链，逐项对上游源码实查后落码）：
+  1. mpv v0.37.0 无内置 superequalizer：filters/user_filters.c 仅注册 `af_lavfi`/`af_lavfi_bridge`，其余名字经 libavfilter 桥（check_unknown_entry→mp_lavfi_is_usable）
+  2. FFmpeg n6.1 superequalizer 为 18 固定频段（65.4 Hz–20 kHz，`1b`..`18b`），增益 0..20 无负值、**无 `bands=` 参数**（任务书预设格式不存在）→ 按 fallback 条款改用 `equalizer` 串联（af_biquads.c：f/t/w/g，g ∈ -900..900，与 10 段 ±12 dB UI 一一对应）
+  3. `af` 读回为 `{name,label,enabled,params}` 节点表（m_option.c obj settings list NODE 序列化），据此设计真引擎回读断言
+- **涉及 commit**：`d88afed`、`805811a`、`6233547`、`db906ea`、`712cf51` + docs（本条与 architecture/roadmap 更新）
+- **已知限制（记入 roadmap「P7 收尾」）**：写 af 整链替换（EQ 启用期覆盖导入 af，唯一管理者语义同 P5 glsl-shaders）；无 passthrough 互锁；滑条每整数步重建 af 链（无防抖）；专辑浏览/封面墙、gapless/loop、歌词 `[offset:]` 不在 v1
+- **CI 结论**：待本批次 PR run 实查后回填
