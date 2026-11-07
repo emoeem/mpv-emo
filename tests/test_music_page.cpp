@@ -97,10 +97,10 @@ void TestMusicPage::pageInstantiates()
               u"musicController.bandCount"_s,
               u"musicController.equalizerGains.length"_s}) {
             bool undefinedValue = false;
-            QString error;
-            const QVariant value =
-                QQmlExpression(engine.rootContext(), page.get(), expression)
-                    .evaluate(&undefinedValue, &error);
+            QQmlExpression eval(engine.rootContext(), page.get(), expression);
+            const QVariant value = eval.evaluate(&undefinedValue);
+            const QString error =
+                eval.error().isValid() ? eval.error().toString() : QString();
             qWarning().nospace().noquote()
                 << "qml expr '" << expression << "' ->" << value
                 << "undefined:" << undefinedValue
