@@ -51,3 +51,11 @@ add_test(NAME test_history_store COMMAND test_history_store)
 set_tests_properties(test_history_store PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 60)
+
+# P6 media library: pure scan logic, folder list persistence, the worker
+# thread scan and the QML list model. QtCore-only; runs headless.
+add_executable(test_library_store test_library_store.cpp)
+target_link_libraries(test_library_store PRIVATE emo_core Qt6::Test)
+add_test(NAME test_library_store COMMAND test_library_store)
+set_tests_properties(test_library_store PROPERTIES
+    TIMEOUT 60)

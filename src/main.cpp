@@ -10,6 +10,8 @@
 
 #include "compat/CompatController.h"
 #include "history/HistoryStore.h"
+#include "library/LibraryModel.h"
+#include "library/LibraryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
 #include "quality/QualityController.h"
@@ -62,6 +64,18 @@ int main(int argc, char *argv[])
     HistoryStore historyStore(&mpvEngine, HistoryStore::defaultFilePath(),
                               &mpvEngine);
 
+    // P6 media library: persisted folder list + scanned entries; the model
+    // wraps the store for QML. A file-loaded event stamps the matching
+    // entry's last-played timestamp (unknown files are ignored).
+    LibraryStore libraryStore(LibraryStore::defaultFilePath(), &mpvEngine);
+    LibraryModel libraryModel(&libraryStore);
+    QObject::connect(&mpvEngine, &MpvEngine::fileLoaded, &libraryStore,
+                     [&mpvEngine, &libraryStore] {
+                         libraryStore.notePlayed(
+                             mpvEngine.getProperty(QStringLiteral("path"))
+                                 .toString());
+                     });
+
     // P5 quality engine: shader sources come from the imported user config
     // directory when that config was actually imported (consent-driven,
     // read-only); otherwise from EmoPlay's own app-data shaders directory.
@@ -99,6 +113,10 @@ int main(int argc, char *argv[])
                                            &compatController);
     view.rootContext()->setContextProperty(QStringLiteral("qualityController"),
                                            &qualityController);
+    view.rootContext()->setContextProperty(QStringLiteral("libraryStore"),
+                                           &libraryStore);
+    view.rootContext()->setContextProperty(QStringLiteral("libraryModel"),
+                                           &libraryModel);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

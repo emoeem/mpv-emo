@@ -20,7 +20,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)
 
 # Core library: libmpv engine wrapper, QML video item, config parsing,
-# playback history, the P4 mpv compatibility layer and the P5 quality engine.
+# playback history, the P4 mpv compatibility layer, the P5 quality engine
+# and the P6 media library.
 # Kept as a separate target so unit tests can link it without the app entry point.
 add_library(emo_core STATIC
     src/mpv/MpvEngine.cpp
@@ -34,6 +35,9 @@ add_library(emo_core STATIC
     src/settings/AppSettings.cpp
     src/quality/QualityProfileEngine.cpp
     src/quality/QualityController.cpp
+    src/library/LibraryStore.cpp
+    src/library/LibraryScanWorker.cpp
+    src/library/LibraryModel.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core
@@ -46,6 +50,7 @@ qt_add_executable(emoplay src/main.cpp)
 qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/Main.qml
     qml/ImportWizard.qml
+    qml/LibraryDrawer.qml
 )
 target_link_libraries(emoplay PRIVATE emo_core Qt6::QuickControls2)
 target_compile_definitions(emoplay PRIVATE
