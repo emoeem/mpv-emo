@@ -15,7 +15,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Test)
+# Network: P8 v2 online plugin manifest sources (RemoteManifestSource).
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBMPV REQUIRED IMPORTED_TARGET mpv)
 
@@ -50,7 +51,8 @@ add_library(emo_core STATIC
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core
-    PUBLIC Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 PkgConfig::LIBMPV)
+    PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::Quick Qt6::QuickControls2
+           PkgConfig::LIBMPV)
 target_compile_definitions(emo_core PRIVATE QT_NO_CAST_FROM_ASCII)
 
 qt_add_executable(emoplay src/main.cpp)
