@@ -29,6 +29,7 @@ private slots:
     void malformedJsonRejected();
     void scriptPluginDetection();
     void contentRootHonorsSourceSubtree();
+    void builtinCatalogParsesWithSixUpstreamSources();
 
 private:
     static QJsonObject entryWithDefaults();
@@ -221,6 +222,78 @@ void TestPluginManifest::contentRootHonorsSourceSubtree()
     QVERIFY(manifest.valid);
     QCOMPARE(manifest.contentRoot(u"/plugins/uosc"_s),
              u"/plugins/uosc/src/uosc"_s);
+}
+
+void TestPluginManifest::builtinCatalogParsesWithSixUpstreamSources()
+{
+    // The catalog shipped with the app is transcribed from the user
+    // repository emoeem/mpv manager.json (commit 70d6eb4). It must always
+    // parse and keep exactly these six upstream sources.
+    QFile file(QStringLiteral(EMOPLAY_SOURCE_BUILTIN_CATALOG));
+    QVERIFY2(file.open(QIODevice::ReadOnly),
+             "builtin catalog not found at compile-time path");
+    QString error;
+    const QVector<PluginManifest> manifests =
+        PluginManifest::parseList(file.readAll(), &error);
+    file.close();
+    if (!error.isEmpty())
+        QFAIL(qPrintable(error));
+    QCOMPARE(manifests.size(), 6);
+
+    QStringList names;
+    for (const PluginManifest &manifest : manifests)
+        names.append(manifest.name);
+    names.sort();
+    QCOMPARE(names.join(QLatin1Char(',')),
+             u"anime4k,file_browser,hdr-toys,trakt_scrobble,uosc,uosc_danmaku"_s);
+
+    // Spot-check the transcribed fields against manager.json (70d6eb4).
+    const auto find = [&manifests](const QString &name) {
+        for (const PluginManifest &manifest : manifests)
+            if (manifest.name == name)
+                return manifest;
+        return PluginManifest();
+    };
+    const PluginManifest uosc = find(u"uosc"_s);
+    QVERIFY(uosc.valid);
+    QCOMPARE(uosc.url, u"https://github.com/tomasklaen/uosc.git"_s);
+    QCOMPARE(uosc.branch, u"main"_s);
+    QCOMPARE(uosc.source, u"src/uosc"_s);
+    QCOMPARE(uosc.destination, u"scripts/uosc"_s);
+    QCOMPARE(uosc.mode, u"check"_s);
+    QCOMPARE(uosc.baseline, u"5.13.0"_s);
+
+    const PluginManifest danmaku = find(u"uosc_danmaku"_s);
+    QVERIFY(danmaku.valid);
+    QCOMPARE(danmaku.mode, u"check"_s);
+    QCOMPARE(danmaku.baseline,
+             u"d8c1cd8b4786c286a19079caef3f9ac9fa64933d"_s);
+
+    const PluginManifest anime4k = find(u"anime4k"_s);
+    QVERIFY(anime4k.valid);
+    QCOMPARE(anime4k.mode, u"replace"_s);
+    QCOMPARE(anime4k.branch, u"master"_s);
+    QCOMPARE(anime4k.source, u"glsl"_s);
+    QCOMPARE(anime4k.destination, u"shaders/Anime4K/glsl"_s);
+    QVERIFY(!anime4k.isScriptPlugin());
+
+    const PluginManifest fileBrowser = find(u"file_browser"_s);
+    QVERIFY(fileBrowser.valid);
+    QCOMPARE(fileBrowser.mode, u"replace"_s);
+    QCOMPARE(fileBrowser.destination, u"scripts/file-browser"_s);
+    QVERIFY(fileBrowser.isScriptPlugin());
+
+    const PluginManifest hdrToys = find(u"hdr-toys"_s);
+    QVERIFY(hdrToys.valid);
+    QCOMPARE(hdrToys.mode, u"check"_s);
+    QCOMPARE(hdrToys.baseline,
+             u"b43e4575bdd655f4c7536f704219798b07d9a300"_s);
+    QVERIFY(!hdrToys.isScriptPlugin());
+
+    const PluginManifest trakt = find(u"trakt_scrobble"_s);
+    QVERIFY(trakt.valid);
+    QCOMPARE(trakt.mode, u"check"_s);
+    QVERIFY(trakt.baseline.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestPluginManifest)

@@ -49,6 +49,13 @@ qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/Main.qml
     qml/ImportWizard.qml
 )
+# P8 plugin store: the built-in manager.json-compatible catalog, read by
+# PluginManager from qrc:/assets/plugins/builtin_sources.json (see
+# PluginManager::defaultCatalogPath(); the resource alias is the file path
+# under PREFIX "/", same as the qml block above).
+qt_add_resources(emoplay "plugins" PREFIX "/" FILES
+    assets/plugins/builtin_sources.json
+)
 target_link_libraries(emoplay PRIVATE emo_core Qt6::QuickControls2)
 target_compile_definitions(emoplay PRIVATE
     QT_NO_CAST_FROM_ASCII
