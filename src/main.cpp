@@ -23,6 +23,7 @@
 #include "quality/IccController.h"
 #include "quality/InterpolationController.h"
 #include "quality/QualityController.h"
+#include "update/UpdateChecker.h"
 
 int main(int argc, char *argv[])
 {
@@ -195,6 +196,14 @@ int main(int argc, char *argv[])
                                     &mpvEngine);
     musicController.startup();
 
+    // P9 update check: one background GET of the GitHub releases API per
+    // launch (delayed so it never competes with startup). The result is
+    // only ever reported — the checker never downloads or installs
+    // anything, and every failure stays silent (the badge just stays
+    // hidden). Declared before `view` per the destruction-order contract.
+    UpdateChecker updateChecker(QString::fromLatin1(EMOPLAY_VERSION));
+    QTimer::singleShot(3000, &updateChecker, &UpdateChecker::check);
+
     QQmlApplicationEngine view;
     view.rootContext()->setContextProperty(QStringLiteral("mpvEngine"), &mpvEngine);
     view.rootContext()->setContextProperty(QStringLiteral("historyStore"),
@@ -217,6 +226,8 @@ int main(int argc, char *argv[])
                                            &pluginManager);
     view.rootContext()->setContextProperty(QStringLiteral("remotePluginSources"),
                                            &remoteSources);
+    view.rootContext()->setContextProperty(QStringLiteral("updateChecker"),
+                                           &updateChecker);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

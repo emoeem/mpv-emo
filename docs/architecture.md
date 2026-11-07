@@ -43,6 +43,7 @@
 | 音乐模式 | `src/music/MusicController.{h,cpp}` | P7 音乐模式服务（HistoryStore 模式：信号驱动 + 按需读属性，不缓存播放状态）：纯音频判定（track-list 无 video 且文件名扩展名属音频集；`albumart` 封面轨不排除，mpv 0.37 input.rst `track-list/N/albumart`）→ `audioMode` 只读属性；解析同名 .lrc → `lyrics`（QVariantList）+ 按 time-pos 镜像 `lyricIndex`；10 段均衡器（af 链写入、预设/自定义持久化 music 节） |
 | 媒体库 | `src/library/LibraryStore.{h,cpp}`、`LibraryScanWorker.{h,cpp}`、`LibraryModel.{h,cpp}` | P6 媒体库 v1（file-browser/recentmenu 语义子集）：目录清单 + QDirIterator 扫描（扩展名分类 video/audio、绝对路径去重、按标题排序；纯静态函数可单测）；JSON 持久化（QSaveFile 原子写）；扫描走常驻 worker 线程（queued 信号回传 + atomic 取消位）；LibraryModel 挂搜索过滤与角色（path/title/type/size/lastPlayed/thumbnail） |
 | 缩略图 | `src/library/ThumbnailService.{h,cpp}`、`ThumbnailQueue.h` | P6 v2 缩略图（thumbfast 语义的简化原生版）：启动异步探测 ffmpeg（`ffmpeg -version`）；按需对库条目串行后台生成（先 `-i` 从 stderr 解析时长，再 `-ss <时长10%> -i file -frames:v 1 -vf scale=320:-1 -y` 抓帧）；缓存 `AppData/thumbnails/<sha1(path+mtime)>.jpg`（mtime 进哈希，文件改动自动换键）；调度为纯逻辑 ThumbnailQueue（QSet 去重 + FIFO）；ffmpeg 缺失优雅降级（不入队不生成，UI 保持类型图标；已缓存文件仍可命中） |
+| 更新检查 | `src/update/UpdateChecker.{h,cpp}` | P9 更新检查：每次启动一次 `GET https://api.github.com/repos/emoeem/mpv-emo/releases/latest`（User-Agent 必设、15s 传输超时）；`tagToVersion`/`compareVersions`/`isNewer` 纯逻辑比对 tag 与运行版本（数值逐段、缺失段=0、release 胜同号预发布、alpha<beta<rc、未知后缀确定性排序）；命中仅**上报**（`updateAvailable(version,url)` 信号 + hasUpdate/latestVersion/releaseUrl 属性），绝不自动下载安装；一切失败静默（仅 `checkFinished` 供测试等待）；apiBase 可注入供本地回环测试 |
 
 ## 关键决策与理由
 
@@ -339,6 +340,21 @@ EmoPlay 自有的空 input.conf（AppData 下按需创建，创建失败经 `err
 - 用户 mpv.conf 里比 libmpv 0.37 新的选项名会被 `mpv_set_option_string` 静默拒绝
   （按选项逐条忽略，不影响其余导入）。
 - GUI 键位编辑器后续阶段做（P4 只加载并使 input.conf 生效）。
+
+## 更新检查（P9）
+
+- 流程：`main.cpp` 构造 `UpdateChecker(EMOPLAY_VERSION)`，启动 3s 后单次
+  `check()`（QNetworkAccessManager，后台异步）；QML 侧 `qml/UpdateBadge.qml`
+  绑定 `updateChecker.hasUpdate`，命中时在控制栏图标区显示版本角标，点击
+  `Qt.openUrlExternally(releaseUrl)` 打开 Release 页（html_url 缺失时 C++ 侧
+  已回退到 `/releases/tag/<tag>`）。
+- 静默契约：离线 / HTTP 错误（含限速 403——无认证 API 60 req/h，每启动一次
+  远低于限速）/ 坏 JSON / `tag_name` 缺失 / 同版本，都只发 `checkFinished`
+  不发更新信号，角标保持隐藏；一次只允许一个 in-flight 请求，二次 `check()`
+  是 no-op。
+- 测试：`test_update_checker` 纯逻辑（tag 解析、版本比较、URL 组装）+
+  127.0.0.1 回环 HTTP 服务验证完整网络路径与 User-Agent/端点（不发真实请求，
+  不依赖外网）。
 
 ## 已知限制 / 待改进（记入 roadmap）
 

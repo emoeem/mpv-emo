@@ -138,3 +138,10 @@ target_link_libraries(test_thumbnail_service PRIVATE emo_core Qt6::Test)
 add_test(NAME test_thumbnail_service COMMAND test_thumbnail_service)
 set_tests_properties(test_thumbnail_service PROPERTIES
     TIMEOUT 60)
+
+# P9 update checker: tag parsing, version comparison and URL assembly are
+# pure logic; the network path runs against a local 127.0.0.1 TCP server,
+# so no request ever leaves the machine.
+add_executable(test_update_checker test_update_checker.cpp)
+target_link_libraries(test_update_checker PRIVATE emo_core Qt6::Test)
+add_test(NAME test_update_checker COMMAND test_update_checker)

@@ -351,6 +351,10 @@ ApplicationWindow {
                     onClicked: pluginDrawer.opened ? pluginDrawer.close()
                                                    : pluginDrawer.open()
                 }
+                // P9 update badge; hidden unless updateChecker confirmed a
+                // newer release (all visuals live in qml/UpdateBadge.qml).
+                UpdateBadge {
+                }
                 IconButton {
                     glyph: "\u266A"
                     opacity: mpvItem.muted ? 0.4 : 1
