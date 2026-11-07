@@ -49,6 +49,7 @@ qt_add_executable(emoplay src/main.cpp)
 qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/Main.qml
     qml/ImportWizard.qml
+    qml/MusicPage.qml
 )
 target_link_libraries(emoplay PRIVATE emo_core Qt6::QuickControls2)
 target_compile_definitions(emoplay PRIVATE

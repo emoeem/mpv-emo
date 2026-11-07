@@ -55,6 +55,17 @@ target_link_libraries(test_music_controller PRIVATE emo_core Qt6::Test)
 add_test(NAME test_music_controller COMMAND test_music_controller)
 set_tests_properties(test_music_controller PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 120)
+
+# P7 music page: headless instantiation of qml/MusicPage.qml (the CI smoke
+# test boots Main.qml only — the loader stays inactive without audio).
+add_executable(test_music_page test_music_page.cpp)
+target_link_libraries(test_music_page PRIVATE emo_core Qt6::Test)
+target_compile_definitions(test_music_page PRIVATE
+    EMOPLAY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME test_music_page COMMAND test_music_page)
+set_tests_properties(test_music_page PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 60)
 
 add_executable(test_history_store test_history_store.cpp)

@@ -12,6 +12,7 @@
 #include "history/HistoryStore.h"
 #include "mpv/MpvEngine.h"
 #include "mpv/MpvItem.h"
+#include "music/MusicController.h"
 #include "quality/QualityController.h"
 
 int main(int argc, char *argv[])
@@ -91,6 +92,13 @@ int main(int argc, char *argv[])
                      });
     qualityController.startup();
 
+    // P7 music mode: lyrics + equalizer service. Declared after the engine
+    // (same destruction contract as above). Shares the compat layer's
+    // AppSettings, so the "music" section lives in the same settings.json.
+    MusicController musicController(&mpvEngine, &compatController.settings(),
+                                    &mpvEngine);
+    musicController.startup();
+
     QQmlApplicationEngine view;
     view.rootContext()->setContextProperty(QStringLiteral("mpvEngine"), &mpvEngine);
     view.rootContext()->setContextProperty(QStringLiteral("historyStore"),
@@ -99,6 +107,8 @@ int main(int argc, char *argv[])
                                            &compatController);
     view.rootContext()->setContextProperty(QStringLiteral("qualityController"),
                                            &qualityController);
+    view.rootContext()->setContextProperty(QStringLiteral("musicController"),
+                                           &musicController);
     qmlRegisterType<MpvItem>("EmoPlay.Mpv", 1, 0, "MpvItem");
     view.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (view.rootObjects().isEmpty())

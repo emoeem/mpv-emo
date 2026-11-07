@@ -9,6 +9,10 @@ ApplicationWindow {
     id: root
 
     readonly property bool isFullscreen: visibility === Window.FullScreen
+    // P7 music mode: read-only binding over the controller's audio
+    // detection (track-list has no video AND the filename is an audio
+    // extension); drives the MusicPage loader below.
+    readonly property bool musicMode: musicController.audioMode
     readonly property double currentTime: seekSlider.pressed
                                           ? seekSlider.value : mpvItem.position
 
@@ -220,6 +224,17 @@ ApplicationWindow {
             }
             ScrollIndicator.vertical: ScrollIndicator {}
         }
+    }
+
+    // P7 music mode: while the current media is pure audio, the video area
+    // is covered by the music page (big title, lyrics, equalizer). Playback
+    // controls stay in the bottom bar. Declared before the control bar so
+    // the bar still renders on top.
+    Loader {
+        anchors.fill: parent
+        active: root.musicMode
+        source: "MusicPage.qml"
+        onLoaded: item.mpvItem = mpvItem
     }
 
     // Bottom control bar; auto-hides during playback when the mouse is idle.
