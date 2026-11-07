@@ -136,6 +136,9 @@ void MpvEngine::observeDefaults()
     mpv_observe_property(m_mpv, 0, "frame-drop-count", MPV_FORMAT_NODE);
     mpv_observe_property(m_mpv, 0, "current-vo", MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 0, "video-format", MPV_FORMAT_STRING);
+    // P7 music mode: the file's metadata tags (NODE map). metadata is
+    // unavailable between files, hence the NONE branch in handleEvents().
+    mpv_observe_property(m_mpv, 0, "metadata", MPV_FORMAT_NODE);
 }
 
 void MpvEngine::onWakeup(void *ctx)
@@ -177,13 +180,13 @@ void MpvEngine::handleEvents()
                     nodeToVariant(static_cast<const mpv_node *>(prop->data)).toList());
             else if (qstrcmp(prop->name, "idle-active") == 0 && prop->format == MPV_FORMAT_FLAG)
                 emit idleActiveChanged(*static_cast<int *>(prop->data) != 0);
-            // P5 properties. mpv reports unavailable properties (no media
-            // yet, or between files) as MPV_FORMAT_NONE with an INVALID
-            // data pointer (libmpv/client.h mpv_observe_property); those
-            // events must clear the mirrors instead of being dropped, or
-            // stale values from the previous file stick around. Only the
-            // P5 properties handle NONE for now - the pre-existing
-            // playback properties keep their current behavior.
+            // P5/P7 properties. mpv reports unavailable properties (no
+            // media yet, or between files) as MPV_FORMAT_NONE with an
+            // INVALID data pointer (libmpv/client.h mpv_observe_property);
+            // those events must clear the mirrors instead of being dropped,
+            // or stale values from the previous file stick around. Only
+            // the P5 properties and "metadata" handle NONE for now - the
+            // pre-existing playback properties keep their current behavior.
             else if (qstrcmp(prop->name, "video-params") == 0
                      && (prop->format == MPV_FORMAT_NODE
                          || prop->format == MPV_FORMAT_NONE))
@@ -218,6 +221,13 @@ void MpvEngine::handleEvents()
                     prop->format == MPV_FORMAT_STRING
                         ? QString::fromUtf8(*static_cast<char **>(prop->data))
                         : QString());
+            else if (qstrcmp(prop->name, "metadata") == 0
+                     && (prop->format == MPV_FORMAT_NODE
+                         || prop->format == MPV_FORMAT_NONE))
+                emit metadataChanged(
+                    prop->format == MPV_FORMAT_NODE
+                        ? nodeToVariant(static_cast<const mpv_node *>(prop->data)).toMap()
+                        : QVariantMap());
             break;
         }
         case MPV_EVENT_FILE_LOADED:
