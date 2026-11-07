@@ -50,6 +50,7 @@ add_library(emo_core STATIC
     src/plugins/PluginManager.cpp
     src/plugins/PluginRemoteFetcher.cpp
     src/plugins/RemoteManifestSource.cpp
+    src/update/UpdateChecker.cpp
 )
 target_include_directories(emo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(emo_core
