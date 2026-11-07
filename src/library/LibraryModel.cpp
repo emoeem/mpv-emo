@@ -1,11 +1,24 @@
 #include "library/LibraryModel.h"
 
-LibraryModel::LibraryModel(LibraryStore *store, QObject *parent)
-    : QAbstractListModel(parent), m_store(store)
+#include "library/ThumbnailService.h"
+
+LibraryModel::LibraryModel(LibraryStore *store, ThumbnailService *thumbnails,
+                           QObject *parent)
+    : QAbstractListModel(parent), m_store(store), m_thumbnails(thumbnails)
 {
     Q_ASSERT(m_store);
     connect(m_store, &LibraryStore::entriesChanged, this,
             &LibraryModel::rebuild);
+    if (m_thumbnails) {
+        connect(m_thumbnails, &ThumbnailService::thumbnailReady, this,
+                &LibraryModel::onThumbnailReady);
+        // Requests made while ffmpeg was still probing (or while it was
+        // missing) are dropped by the service; when availability changes we
+        // ask again so late-probed / late-installed ffmpeg still fills the
+        // visible grid. Unavailable services drop them again (degradation).
+        connect(m_thumbnails, &ThumbnailService::availabilityChanged, this,
+                &LibraryModel::requestVisibleThumbnails);
+    }
     rebuild();
 }
 
@@ -34,6 +47,9 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
         return entry.size;
     case LastPlayedRole:
         return entry.lastPlayed;
+    case ThumbnailRole:
+        return m_thumbnails ? m_thumbnails->cachedThumbnailPath(entry.path)
+                            : QString();
     default:
         return {};
     }
@@ -47,6 +63,7 @@ QHash<int, QByteArray> LibraryModel::roleNames() const
     roles.insert(TypeRole, "type");
     roles.insert(SizeRole, "size");
     roles.insert(LastPlayedRole, "lastPlayed");
+    roles.insert(ThumbnailRole, "thumbnail");
     return roles;
 }
 
@@ -77,4 +94,29 @@ void LibraryModel::rebuild()
     endResetModel();
     if (m_visible.size() != previousCount)
         emit countChanged();
+
+    // On-demand thumbnails for the freshly (re)built visible list. The
+    // service dedupes, serves cache hits synchronously (thumbnailReady ->
+    // onThumbnailReady fires within this loop) and queues the rest.
+    requestVisibleThumbnails();
+}
+
+void LibraryModel::onThumbnailReady(const QString &path,
+                                    const QString &cacheFile)
+{
+    Q_UNUSED(cacheFile);
+    for (int row = 0; row < m_visible.size(); ++row) {
+        if (m_visible.at(row).path != path)
+            continue;
+        const QModelIndex rowIndex = index(row, 0);
+        emit dataChanged(rowIndex, rowIndex, {ThumbnailRole});
+    }
+}
+
+void LibraryModel::requestVisibleThumbnails()
+{
+    if (!m_thumbnails)
+        return;
+    for (const LibraryEntry &entry : m_visible)
+        m_thumbnails->requestThumbnail(entry.path);
 }

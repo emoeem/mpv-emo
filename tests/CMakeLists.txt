@@ -119,3 +119,13 @@ target_link_libraries(test_library_store PRIVATE emo_core Qt6::Test)
 add_test(NAME test_library_store COMMAND test_library_store)
 set_tests_properties(test_library_store PROPERTIES
     TIMEOUT 60)
+
+# P6 v2 thumbnails: cache-key hashing, seek/duration parsing, queue
+# scheduling and the ffmpeg probe/generation chain. The chain runs against a
+# stub shell script — never a real ffmpeg; the missing-binary degradation
+# path uses a nonexistent binary. QtCore-only; runs headless.
+add_executable(test_thumbnail_service test_thumbnail_service.cpp)
+target_link_libraries(test_thumbnail_service PRIVATE emo_core Qt6::Test)
+add_test(NAME test_thumbnail_service COMMAND test_thumbnail_service)
+set_tests_properties(test_thumbnail_service PROPERTIES
+    TIMEOUT 60)

@@ -4,12 +4,15 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 
 // P6 media library drawer: folder management (FolderDialog add / remove),
-// scan button with progress hint, search filter and the entry list.
+// scan button with progress hint, search filter and the entry grid.
 //
 // Self-contained: it talks only to the libraryStore / libraryModel context
 // properties and to mpvEngine. Main.qml supplies the width, focus return on
 // close and key forwarding (those need Main.qml ids), like the other drawers.
-// v1 lists name + type icon; no thumbnails, no metadata lookup.
+// Entries render as a grid (P6 v2): the "thumbnail" role carries the
+// ffmpeg-generated cache file, loaded asynchronously; entries without one
+// (still generating, failed, or ffmpeg missing entirely) keep the type-icon
+// placeholder.
 Drawer {
     id: libraryDrawer
     edge: Qt.RightEdge
@@ -105,22 +108,57 @@ Drawer {
             onTextChanged: libraryModel.filter = text
         }
 
-        ListView {
-            id: entryList
+        GridView {
+            id: entryGrid
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             model: libraryModel
+            // Two columns regardless of drawer width (Main.qml caps it at
+            // 460 px); cells are square-ish with room for the caption.
+            cellWidth: Math.max(1, Math.floor(entryGrid.width / 2))
+            cellHeight: 116
             delegate: ItemDelegate {
-                width: ListView.view.width
+                width: GridView.view.cellWidth - 6
+                height: GridView.view.cellHeight - 6
                 hoverEnabled: true
-                contentItem: Text {
-                    text: (model.type === "video" ? "\u25B6" : "\u266A")
-                          + "  " + model.title
-                    color: "#e8e8ee"
-                    font.pixelSize: 13
-                    elide: Text.ElideMiddle
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: ColumnLayout {
+                    spacing: 2
+                    // Thumbnail area: the cached JPEG when one exists, the
+                    // type icon otherwise (placeholder while generating /
+                    // failed / ffmpeg missing).
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "#26262e"
+                            radius: 4
+                        }
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: 2
+                            asynchronous: true
+                            source: model.thumbnail
+                            fillMode: Image.PreserveAspectCrop
+                            visible: model.thumbnail !== ""
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            visible: model.thumbnail === ""
+                            text: model.type === "video" ? "\u25B6" : "\u266A"
+                            color: "#8a8a96"
+                            font.pixelSize: 22
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: model.title
+                        color: "#e8e8ee"
+                        font.pixelSize: 11
+                        elide: Text.ElideMiddle
+                        maximumLineCount: 1
+                    }
                 }
                 ToolTip.visible: hovered
                 ToolTip.delay: 600
@@ -130,7 +168,7 @@ Drawer {
             ScrollIndicator.vertical: ScrollIndicator {}
         }
         Label {
-            visible: entryList.count === 0 && !libraryStore.scanning
+            visible: entryGrid.count === 0 && !libraryStore.scanning
             text: libraryStore.directories.length === 0
                   ? qsTr("Add a folder and rescan to fill the library")
                   : qsTr("No media files found")
