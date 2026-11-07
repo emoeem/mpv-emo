@@ -51,3 +51,18 @@ add_test(NAME test_history_store COMMAND test_history_store)
 set_tests_properties(test_history_store PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 60)
+
+# P8 plugin manifest parsing: pure logic, no git, no network.
+add_executable(test_plugin_manifest test_plugin_manifest.cpp)
+target_link_libraries(test_plugin_manifest PRIVATE emo_core Qt6::Test)
+add_test(NAME test_plugin_manifest COMMAND test_plugin_manifest)
+# The test also validates the shipped builtin catalog straight from the
+# source tree (the qrc copy is compiled into the app target only).
+target_compile_definitions(test_plugin_manifest PRIVATE
+    EMOPLAY_SOURCE_BUILTIN_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/../assets/plugins/builtin_sources.json")
+
+# P8 plugin manager: path assembly, scripts merge and the git state machine
+# driven by a synchronous fake PluginGitRunner (no network, no real git).
+add_executable(test_plugin_manager test_plugin_manager.cpp)
+target_link_libraries(test_plugin_manager PRIVATE emo_core Qt6::Test)
+add_test(NAME test_plugin_manager COMMAND test_plugin_manager)
