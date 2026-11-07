@@ -501,12 +501,13 @@ void TestLibraryStore::modelMirrorsStoreEntries()
     root.insert(u"version"_s, 1);
     root.insert(u"directories"_s, QJsonArray());
     root.insert(u"entries"_s, entries);
-    QFile file(dir.filePath(u"library.json"_s));
+    const QString filePath = dir.filePath(u"library.json"_s);
+    QFile file(filePath);
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
     file.close();
 
-    LibraryStore store(file);
+    LibraryStore store(filePath);
     QCOMPARE(store.entryList().size(), 2);
 
     LibraryModel model(&store);
@@ -548,12 +549,13 @@ void TestLibraryStore::modelFilterNarrowsAndResets()
     root.insert(u"version"_s, 1);
     root.insert(u"directories"_s, QJsonArray());
     root.insert(u"entries"_s, entries);
-    QFile file(dir.filePath(u"library.json"_s));
+    const QString filePath = dir.filePath(u"library.json"_s);
+    QFile file(filePath);
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
     file.close();
 
-    LibraryStore store(file);
+    LibraryStore store(filePath);
     LibraryModel model(&store);
     QCOMPARE(model.count(), 2);
     QCOMPARE(model.filter(), QString());
@@ -605,12 +607,13 @@ void TestLibraryStore::modelFollowsStoreUpdates()
     root.insert(u"version"_s, 1);
     root.insert(u"directories"_s, QJsonArray());
     root.insert(u"entries"_s, entries);
-    QFile file(dir.filePath(u"library.json"_s));
+    const QString filePath = dir.filePath(u"library.json"_s);
+    QFile file(filePath);
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
     file.close();
 
-    LibraryStore store(file);
+    LibraryStore store(filePath);
     LibraryModel model(&store);
     QCOMPARE(model.count(), 1);
 
