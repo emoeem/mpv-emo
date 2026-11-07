@@ -2,11 +2,17 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "library/LibraryModel.h"
+#include "library/LibraryStore.h"
 #include "library/ThumbnailQueue.h"
 #include "library/ThumbnailService.h"
 
@@ -136,6 +142,38 @@ QStringList readInvocations(const QString &logPath)
     return nonEmpty;
 }
 
+// Writes a two-entry library.json — |realPath| as "aaa" (row 0), a
+// nonexistent path as "zzz" (row 1) — and returns the storage path. Titles
+// control the model's sort order, so row indices are deterministic.
+QString writeLibraryFile(const QTemporaryDir &dir, const QString &realPath)
+{
+    QJsonObject real;
+    real.insert(u"path"_s, realPath);
+    real.insert(u"title"_s, u"aaa"_s);
+    real.insert(u"type"_s, u"video"_s);
+    real.insert(u"size"_s, 10);
+    real.insert(u"lastPlayed"_s, QString());
+
+    QJsonObject missing;
+    missing.insert(u"path"_s, u"/nonexistent/gone.mkv"_s);
+    missing.insert(u"title"_s, u"zzz"_s);
+    missing.insert(u"type"_s, u"audio"_s);
+    missing.insert(u"size"_s, 20);
+    missing.insert(u"lastPlayed"_s, QString());
+
+    QJsonObject root;
+    root.insert(u"version"_s, 1);
+    root.insert(u"directories"_s, QJsonArray());
+    root.insert(u"entries"_s, QJsonArray{real, missing});
+
+    const QString filePath = dir.filePath(u"library.json"_s);
+    QFile file(filePath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    file.close();
+    return filePath;
+}
+
 } // namespace
 
 class TestThumbnailService : public QObject
@@ -164,6 +202,11 @@ private slots:
     // ---- ffmpeg missing: graceful degradation --------------------------
     void requestWithMissingBinaryDegradesGracefully();
     void cacheHitIsServedWithoutFfmpeg();
+
+    // ---- LibraryModel thumbnail role (P6 v2 wiring) --------------------
+    void modelExposesThumbnailRoleAndDataChanged();
+    void modelKeepsPlaceholderWhenServiceUnavailable();
+    void modelWithoutServiceHasEmptyThumbnailRole();
 };
 
 void TestThumbnailService::cachePathForIsSha1OfPathAndMtime()
@@ -438,6 +481,119 @@ void TestThumbnailService::cacheHitIsServedWithoutFfmpeg()
     QCOMPARE(readySpy.at(0).at(0).toString(), mediaPath);
     QCOMPARE(readySpy.at(0).at(1).toString(), expectedCache);
     QCOMPARE(service.cachedThumbnailPath(mediaPath), expectedCache);
+}
+
+void TestThumbnailService::modelExposesThumbnailRoleAndDataChanged()
+{
+    if (!shellAvailable())
+        QSKIP("the ffmpeg stub script needs a POSIX shell");
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString mediaPath = writeMediaFile(dir);
+    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+    const QString cacheDir = dir.filePath(u"thumbs"_s);
+    const QString expectedCache = ThumbnailService::cachePathFor(
+        cacheDir, mediaPath,
+        QFileInfo(mediaPath).lastModified().toMSecsSinceEpoch());
+
+    LibraryStore store(libraryPath);
+    QCOMPARE(store.entryList().size(), 2);
+
+    ThumbnailService service(cacheDir, writeStub(dir));
+    service.probe();
+    QTRY_VERIFY(service.isAvailable());
+
+    LibraryModel model(&store, &service);
+    const QHash<int, QByteArray> roles = model.roleNames();
+    QVERIFY(roles.contains(LibraryModel::ThumbnailRole));
+    QCOMPARE(roles.value(LibraryModel::ThumbnailRole),
+             QByteArray("thumbnail"));
+
+    // Nothing cached yet: rows report empty thumbnails (placeholder).
+    QCOMPARE(model.data(model.index(0, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+    QCOMPARE(model.data(model.index(1, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+
+    // Generation runs in the background; the model asks for thumbnails on
+    // rebuild (its constructor), ready paths flow back via dataChanged.
+    QSignalSpy dataSpy(&model, &LibraryModel::dataChanged);
+    QTRY_COMPARE(
+        model.data(model.index(0, 0), LibraryModel::ThumbnailRole).toString(),
+        expectedCache);
+    // The missing file never gets one.
+    QCOMPARE(model.data(model.index(1, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+
+    // The role update reached delegates as dataChanged(ThumbnailRole), not
+    // as a model reset.
+    bool sawThumbnailRole = false;
+    for (const QList<QVariant> &args : dataSpy) {
+        const QVariantList changedRoles = args.at(2).toList();
+        for (const QVariant &role : changedRoles) {
+            if (role.toInt() == LibraryModel::ThumbnailRole) {
+                sawThumbnailRole = true;
+                break;
+            }
+        }
+        if (sawThumbnailRole)
+            break;
+    }
+    QVERIFY(sawThumbnailRole);
+}
+
+void TestThumbnailService::modelKeepsPlaceholderWhenServiceUnavailable()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString mediaPath = writeMediaFile(dir);
+    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+
+    LibraryStore store(libraryPath);
+    ThumbnailService service(
+        dir.filePath(u"thumbs"_s),
+        u"/nonexistent-dir-for-tests/ffmpeg-should-not-exist"_s);
+    service.probe();
+    QTRY_VERIFY(!service.isAvailable());
+
+    // The model's constructor rebuild already requested thumbnails; the
+    // unavailable service drops them and the role stays empty (the drawer
+    // keeps its type icons). No crash, no queue growth on repeated rebuilds.
+    LibraryModel model(&store, &service);
+    QCOMPARE(model.count(), 2);
+    QTest::qWait(200);
+    QCOMPARE(model.data(model.index(0, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+    QCOMPARE(model.data(model.index(1, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+
+    // Re-filtering triggers another rebuild + requests; still graceful.
+    model.setFilter(u"aaa"_s);
+    QCOMPARE(model.count(), 1);
+    QCOMPARE(model.data(model.index(0, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
+}
+
+void TestThumbnailService::modelWithoutServiceHasEmptyThumbnailRole()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString mediaPath = writeMediaFile(dir);
+    const QString libraryPath = writeLibraryFile(dir, mediaPath);
+
+    LibraryStore store(libraryPath);
+    LibraryModel model(&store); // no ThumbnailService: legacy wiring
+    QCOMPARE(model.count(), 2);
+    QCOMPARE(model.data(model.index(0, 0), LibraryModel::ThumbnailRole)
+                 .toString(),
+             QString());
 }
 
 QTEST_GUILESS_MAIN(TestThumbnailService)
