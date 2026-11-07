@@ -190,8 +190,12 @@ ColumnLayout {
                         radius: 4
                         color: modelData.mode === "replace" ? "#5a3d1e"
                                                             : "#1e3a5a"
-                        width: modeLabel.implicitWidth + 10
-                        height: modeLabel.implicitHeight + 4
+                        // Implicit (not explicit) sizes: the badge is managed
+                        // by the surrounding RowLayout — explicit width/
+                        // height on a layout child is undefined behavior
+                        // (qmllint Quick.layout-positioning).
+                        implicitWidth: modeLabel.implicitWidth + 10
+                        implicitHeight: modeLabel.implicitHeight + 4
                         Label {
                             id: modeLabel
                             anchors.centerIn: parent
