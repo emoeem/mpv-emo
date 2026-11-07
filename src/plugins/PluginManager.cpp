@@ -437,7 +437,8 @@ void PluginManager::uninstall(const QString &name)
     m_state.remove(name);
     m_remoteHeads.remove(name);
     m_locallyModified.remove(name);
-    saveState();
+    if (!saveState())
+        emit errorOccurred(QStringLiteral("cannot save %1").arg(m_statePath));
     emit changed();
     emit operationFinished(name, QStringLiteral("uninstall"), true,
                            QStringLiteral("uninstalled %1").arg(name));
