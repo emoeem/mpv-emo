@@ -95,7 +95,10 @@ void TestMusicPage::pageInstantiates()
         for (const QString &expression :
              {u"typeof musicController"_s, u"musicController"_s,
               u"musicController.bandCount"_s,
-              u"musicController.equalizerGains.length"_s}) {
+              u"musicController.equalizerGains.length"_s,
+              u"bandRepeater.itemAt(0)"_s,
+              u"bandRepeater.itemAt(0) ? bandRepeater.itemAt(0).parent : 'null'"_s,
+              u"bandRepeater.itemAt(0) ? bandRepeater.itemAt(0).parentItem : 'null'"_s}) {
             bool undefinedValue = false;
             QQmlExpression eval(engine.rootContext(), page.get(), expression);
             const QVariant value = eval.evaluate(&undefinedValue);
@@ -107,22 +110,27 @@ void TestMusicPage::pageInstantiates()
                 << (error.isEmpty() ? QString()
                                     : u" [error: "_s + error + u"]"_s);
         }
-        // Bisect: does a minimal Repeater create items on this runner?
+        // Bisect with the page's exact delegate shape (Repeater inside a
+        // RowLayout, ColumnLayout delegate, Slider child).
         QQmlComponent probeComponent(&engine);
         probeComponent.setData(
-            "import QtQuick\nimport QtQuick.Controls\n"
-            "Item { Repeater { model: 3; delegate: Item { objectName: "
-            "\"probe\" + index } } }",
+            "import QtQuick\nimport QtQuick.Controls\nimport QtQuick.Layouts\n"
+            "Item { Repeater { model: 3; delegate: ColumnLayout { Slider { } } } }",
             QUrl(QStringLiteral("qrc:/probe.qml")));
         std::unique_ptr<QObject> probe(probeComponent.create());
         int probeCount = -1;
+        int probeSliders = 0;
         if (probe) {
-            for (const QObject *child : probe->findChildren<QObject *>())
+            for (const QObject *child : probe->findChildren<QObject *>()) {
                 if (child->inherits("QQuickRepeater"))
                     probeCount = child->property("count").toInt();
+                if (child->inherits("QQuickSlider"))
+                    ++probeSliders;
+            }
         }
-        qWarning() << "minimal repeater probe: created ="
-                   << (probe != nullptr) << "count =" << probeCount
+        qWarning() << "shape probe: created =" << (probe != nullptr)
+                   << "count =" << probeCount
+                   << "sliders =" << probeSliders
                    << "errors:" << probeComponent.errorString();
     }
     QCOMPARE(sliderCount, controller.bandCount());

@@ -250,6 +250,8 @@ Item {
                 spacing: 8
 
                 Repeater {
+                    id: bandRepeater
+
                     // One slider per fixed band: the controller's constant,
                     // not the gains array length (the gains list mirrors the
                     // same count, but the band grid does not depend on it).
