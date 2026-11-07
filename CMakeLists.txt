@@ -62,6 +62,11 @@ qt_add_executable(emoplay src/main.cpp)
 # The alias of each file is its path relative to the source tree, so
 # PREFIX "/" puts qml/Main.qml at qrc:/qml/Main.qml (see main.cpp).
 qt_add_resources(emoplay "qml" PREFIX "/" FILES
+    qml/qmldir
+    qml/Theme.qml
+    qml/AppIcon.qml
+    qml/PillSlider.qml
+    qml/AccentButton.qml
     qml/Main.qml
     qml/ImportWizard.qml
     qml/MusicPage.qml

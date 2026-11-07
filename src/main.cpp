@@ -5,6 +5,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -47,6 +48,12 @@ int main(int argc, char *argv[])
         QStringLiteral("smoke-test"),
         QStringLiteral("Start up, render for a few seconds, then exit (for CI)."));
     cli.addOption(smokeTestOption);
+    QCommandLineOption screenshotOption(
+        QStringLiteral("screenshot"),
+        QStringLiteral("Save a window capture to <path> after startup, then "
+                       "exit (UI verification)."),
+        QStringLiteral("screenshot"));
+    cli.addOption(screenshotOption);
     cli.process(app);
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
@@ -234,11 +241,50 @@ int main(int argc, char *argv[])
         return 1;
 
     const QStringList files = cli.positionalArguments();
-    if (!files.isEmpty())
-        mpvEngine.loadFile(files.first());
+    if (!files.isEmpty()) {
+        // The mpv render context is created when the scene graph renders its
+        // first frame. A loadfile issued before that hits vo=libmpv with no
+        // render context: vo init fails and playback aborts to idle. Defer
+        // the load until the first frame has been swapped.
+        if (auto *window = qobject_cast<QQuickWindow *>(view.rootObjects().value(0))) {
+            QMetaObject::Connection firstFrame = QObject::connect(
+                window, &QQuickWindow::frameSwapped, &app,
+                [&mpvEngine, files, window]() mutable {
+                    window->disconnect();
+                    QTimer::singleShot(0, &mpvEngine,
+                                       [&mpvEngine, files]() {
+                                           mpvEngine.loadFile(files.first());
+                                       });
+                });
+        }
+    }
 
-    if (cli.isSet(smokeTestOption))
-        QTimer::singleShot(3000, &app, &QCoreApplication::quit);
+    if (cli.isSet(smokeTestOption)) {
+        QTimer::singleShot(3000, &app, [&, &mpvEngine]() {
+            qInfo("DEBUG idle-active=%s filename=%s",
+                  mpvEngine.getProperty(QStringLiteral("idle-active")).toString().toUtf8().constData(),
+                  mpvEngine.getProperty(QStringLiteral("filename")).toString().toUtf8().constData());
+            QCoreApplication::quit();
+        });
+    }
+
+    // UI verification: let the scene render, grab every top-level window to
+    // the given path, then exit. Works under Xvfb (offscreen GL included).
+    if (cli.isSet(screenshotOption)) {
+        const QString path = cli.value(screenshotOption);
+        QTimer::singleShot(3800, &app, [path]() {
+            const QList<QWindow *> windows = QGuiApplication::topLevelWindows();
+            for (QWindow *window : windows) {
+                if (auto *quick = qobject_cast<QQuickWindow *>(window)) {
+                    const QImage shot = quick->grabWindow();
+                    if (!shot.save(path))
+                        qWarning("screenshot: failed to save %s",
+                                 qPrintable(path));
+                }
+            }
+            QCoreApplication::quit();
+        });
+    }
 
     return app.exec();
 }

@@ -110,6 +110,9 @@ bool MpvEngine::initialize(const QVariantMap &options)
     }
 
     mpv_set_wakeup_callback(m_mpv, &MpvEngine::onWakeup, this);
+    // Surface mpv's own warnings/errors through errorOccurred so playback
+    // failures (decode, vo init, missing audio output) are never silent.
+    mpv_request_log_messages(m_mpv, "warn");
     observeDefaults();
     return true;
 }
@@ -236,6 +239,20 @@ void MpvEngine::handleEvents()
         case MPV_EVENT_PLAYBACK_RESTART:
             emit playbackRestarted();
             break;
+        case MPV_EVENT_LOG_MESSAGE: {
+            const auto *log = static_cast<mpv_event_log_message *>(ev->data);
+            // warn/error levels were requested in initialize(); route them to
+            // the same channel command errors use so the UI can surface them.
+            if (log && (qstrcmp(log->level, "warn") == 0
+                        || qstrcmp(log->level, "error") == 0
+                        || qstrcmp(log->level, "fatal") == 0)) {
+                emit errorOccurred(QStringLiteral("[mpv/%1] %2")
+                                       .arg(QString::fromUtf8(log->prefix),
+                                            QString::fromUtf8(
+                                                log->text).trimmed()));
+            }
+            break;
+        }
         case MPV_EVENT_END_FILE: {
             // Local must not be named endFile: it would shadow the signal.
             const auto *endFileEvent = static_cast<mpv_event_end_file *>(ev->data);
