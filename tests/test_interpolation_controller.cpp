@@ -216,7 +216,10 @@ void TestInterpolationController::unknownPresetIsIgnoredAndCorruptionBehavesLike
     QCOMPARE(controller.preset(), u"MEMC_RIFE_STD"_s);
 
     // A corrupted settings.json (unknown preset with the switch on) must
-    // not enable anything.
+    // not enable anything. On a libmpv without vapoursynth the fallback
+    // above already persisted "off", so turn the persisted switch back on
+    // explicitly to build the corrupted state.
+    settings.setQualityInterpolationEnabled(true);
     settings.setQualityInterpolationPreset(u"MEMC_MAGICAL"_s);
     settings.save();
     InterpolationController corrupted(&engine, &settings,
