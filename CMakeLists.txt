@@ -35,6 +35,9 @@ add_library(emo_core STATIC
     src/settings/AppSettings.cpp
     src/quality/QualityProfileEngine.cpp
     src/quality/QualityController.cpp
+    src/quality/InterpolationDecision.cpp
+    src/quality/InterpolationController.cpp
+    src/quality/IccController.cpp
     src/music/LrcParser.cpp
     src/music/MusicController.cpp
     src/library/LibraryStore.cpp
@@ -58,6 +61,8 @@ qt_add_resources(emoplay "qml" PREFIX "/" FILES
     qml/MusicPage.qml
     qml/LibraryDrawer.qml
     qml/PluginDrawer.qml
+    qml/InterpolationPanel.qml
+    qml/IccPanel.qml
 )
 # P8 plugin store: the built-in manager.json-compatible catalog, read by
 # PluginManager from qrc:/assets/plugins/builtin_sources.json (see

@@ -36,6 +36,27 @@ set_tests_properties(test_quality_controller PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120)
 
+# P5 v2 interpolation decision table: pure logic, no mpv, no GUI.
+add_executable(test_interpolation_decision test_interpolation_decision.cpp)
+target_link_libraries(test_interpolation_decision PRIVATE emo_core Qt6::Test)
+add_test(NAME test_interpolation_decision COMMAND test_interpolation_decision)
+
+# P5 v2 interpolation application path: drives a real idle libmpv core
+# (vf change-list probe / fallback), headless.
+add_executable(test_interpolation_controller test_interpolation_controller.cpp)
+target_link_libraries(test_interpolation_controller PRIVATE emo_core Qt6::Test)
+add_test(NAME test_interpolation_controller COMMAND test_interpolation_controller)
+set_tests_properties(test_interpolation_controller PROPERTIES
+    TIMEOUT 120)
+
+# P5 v2 ICC application path: icc-profile round trip + P4 table cache
+# redirect on a real idle libmpv core, headless.
+add_executable(test_icc_controller test_icc_controller.cpp)
+target_link_libraries(test_icc_controller PRIVATE emo_core Qt6::Test)
+add_test(NAME test_icc_controller COMMAND test_icc_controller)
+set_tests_properties(test_icc_controller PROPERTIES
+    TIMEOUT 120)
+
 add_executable(test_mpv_engine test_mpv_engine.cpp)
 target_link_libraries(test_mpv_engine PRIVATE emo_core Qt6::Test)
 # No GUI is needed: these tests exercise the libmpv handle and Qt signals only.

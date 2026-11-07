@@ -18,6 +18,8 @@
 #include "mpv/MpvItem.h"
 #include "music/MusicController.h"
 #include "plugins/PluginManager.h"
+#include "quality/IccController.h"
+#include "quality/InterpolationController.h"
 #include "quality/QualityController.h"
 
 int main(int argc, char *argv[])
@@ -129,6 +131,32 @@ int main(int argc, char *argv[])
                      });
     qualityController.startup();
 
+    // P5 v2: VapourSynth frame interpolation and ICC display configuration.
+    // Both follow the honest external-dependency pattern — the scripts,
+    // runtimes and profile files stay external, and anything missing
+    // stands down visibly instead of pretending to work. The interpolation
+    // scripts directory is EmoPlay's own app-data vs/ directory; the ICC
+    // cache follows the P4 redirect table (AppData/icc_cache).
+    const QString appDataDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    InterpolationController interpolationController(
+        &mpvEngine, &compatController.settings(),
+        appDataDir + QStringLiteral("/vs"), &mpvEngine);
+    QObject::connect(&interpolationController,
+                     &InterpolationController::errorOccurred,
+                     [](const QString &message) {
+                         qCritical("interpolation: %s", qPrintable(message));
+                     });
+    interpolationController.startup();
+
+    IccController iccController(&mpvEngine, &compatController.settings(),
+                                appDataDir, &mpvEngine);
+    QObject::connect(&iccController, &IccController::errorOccurred,
+                     [](const QString &message) {
+                         qCritical("icc: %s", qPrintable(message));
+                     });
+    iccController.startup();
+
     // P7 music mode: lyrics + equalizer service. Declared after the engine
     // (same destruction contract as above). Shares the compat layer's
     // AppSettings, so the "music" section lives in the same settings.json.
@@ -144,6 +172,10 @@ int main(int argc, char *argv[])
                                            &compatController);
     view.rootContext()->setContextProperty(QStringLiteral("qualityController"),
                                            &qualityController);
+    view.rootContext()->setContextProperty(
+        QStringLiteral("interpolationController"), &interpolationController);
+    view.rootContext()->setContextProperty(QStringLiteral("iccController"),
+                                           &iccController);
     view.rootContext()->setContextProperty(QStringLiteral("musicController"),
                                            &musicController);
     view.rootContext()->setContextProperty(QStringLiteral("libraryStore"),

@@ -662,6 +662,15 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
             }
 
+            // P5 v2 sections live in their own files (additive-only
+            // Main.qml changes); they talk to their controllers directly.
+            InterpolationPanel {
+                Layout.fillWidth: true
+            }
+            IccPanel {
+                Layout.fillWidth: true
+            }
+
             Label {
                 text: qsTr("Shaders")
                 font.weight: Font.DemiBold

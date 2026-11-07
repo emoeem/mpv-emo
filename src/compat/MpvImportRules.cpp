@@ -47,7 +47,35 @@ const ForcedValue *findForced(const QString &key)
     return nullptr;
 }
 
+// Write paths land in EmoPlay's app data, never in the user's mpv
+// directory (which config-dir points at for ~~ resolution). Shared by the
+// P4 startup pass below and the P5 runtime redirects
+// (MpvImportRules::redirectTarget).
+struct Redirect
+{
+    const char *key;
+    const char *subdir;
+};
+
+const Redirect kRedirects[] = {
+    {"watch-later-dir", "watch_later"},
+    {"screenshot-directory", "screenshots"},
+    {"gpu-shader-cache-dir", "shader_cache"},
+    {"icc-cache-dir", "icc_cache"},
+    {"demuxer-cache-dir", "demuxer_cache"},
+};
+
 } // namespace
+
+QString MpvImportRules::redirectTarget(const QString &key,
+                                       const QString &appDataDir)
+{
+    for (const Redirect &redirect : kRedirects)
+        if (key == QLatin1String(redirect.key))
+            return appDataDir + QLatin1Char('/')
+                   + QLatin1String(redirect.subdir);
+    return QString();
+}
 
 const QStringList &MpvImportRules::forcedKeys()
 {
@@ -143,21 +171,9 @@ ImportRuleResult MpvImportRules::apply(const QVector<MpvConfEntry> &entries,
 
     // Pass 3: write paths land in EmoPlay's app data, never in the user's
     // mpv directory (which config-dir points at for ~~ resolution).
-    struct Redirect
-    {
-        const char *key;
-        const char *subdir;
-    };
-    const Redirect kRedirects[] = {
-        {"watch-later-dir", "watch_later"},
-        {"screenshot-directory", "screenshots"},
-        {"gpu-shader-cache-dir", "shader_cache"},
-        {"icc-cache-dir", "icc_cache"},
-        {"demuxer-cache-dir", "demuxer_cache"},
-    };
     for (const Redirect &redirect : kRedirects) {
-        const QString path = appDataDir + QLatin1Char('/')
-                             + QLatin1String(redirect.subdir);
+        const QString path = redirectTarget(QLatin1String(redirect.key),
+                                            appDataDir);
         result.options.insert(QLatin1String(redirect.key), path);
         result.redirected.append(QStringLiteral("%1 -> %2")
                                      .arg(QLatin1String(redirect.key), path));

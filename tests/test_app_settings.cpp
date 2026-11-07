@@ -28,6 +28,10 @@ private slots:
     void qualityDefaultsWhenMissing();
     void qualitySectionRoundTrips();
     void qualityCoexistsWithImportDecision();
+    // P5 v2 interpolation / icc objects.
+    void interpolationAndIccDefaultWhenMissing();
+    void interpolationAndIccRoundTrip();
+    void interpolationAndIccSurviveWrongTypes();
     // P7 music section.
     void musicDefaultsWhenMissing();
     void musicSectionRoundTrips();
@@ -237,6 +241,78 @@ void TestAppSettings::qualityCoexistsWithImportDecision()
     QCOMPARE(settings.importDecision(), u"selective"_s);
     QCOMPARE(settings.qualityTier(), u"medium"_s);
     QVERIFY(!settings.importedAt().isEmpty());
+}
+
+void TestAppSettings::interpolationAndIccDefaultWhenMissing()
+{
+    // A quality section written before P5 v2 loads the new objects with
+    // defaults.
+    const QString file = m_dir.filePath(u"pre-v2.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setQualityTier(u"low"_s);
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.qualityInterpolationEnabled(), false);
+    QCOMPARE(settings.qualityInterpolationPreset(), u"MEMC_RIFE_STD"_s);
+    QCOMPARE(settings.qualityIccEnabled(), false);
+    QCOMPARE(settings.qualityIccProfilePath(), QString());
+}
+
+void TestAppSettings::interpolationAndIccRoundTrip()
+{
+    const QString file = m_dir.filePath(u"v2.json"_s);
+    {
+        AppSettings settings(file);
+        settings.setQualityInterpolationEnabled(true);
+        settings.setQualityInterpolationPreset(u"MEMC_SVP_PRO"_s);
+        settings.setQualityIccEnabled(true);
+        settings.setQualityIccProfilePath(u"/home/user/icc/display.icc"_s);
+        QVERIFY(settings.save());
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.qualityInterpolationEnabled(), true);
+    QCOMPARE(settings.qualityInterpolationPreset(), u"MEMC_SVP_PRO"_s);
+    QCOMPARE(settings.qualityIccEnabled(), true);
+    QCOMPARE(settings.qualityIccProfilePath(), u"/home/user/icc/display.icc"_s);
+
+    // v1 quality fields and the P4 decision coexist in the same document.
+    settings.setQualityTier(u"medium"_s);
+    settings.setImportDecision(u"standalone"_s);
+    QVERIFY(settings.save());
+    AppSettings reloaded(file);
+    QVERIFY(reloaded.load());
+    QCOMPARE(reloaded.qualityTier(), u"medium"_s);
+    QCOMPARE(reloaded.importDecision(), u"standalone"_s);
+    QCOMPARE(reloaded.qualityInterpolationPreset(), u"MEMC_SVP_PRO"_s);
+    QCOMPARE(reloaded.qualityIccProfilePath(),
+             u"/home/user/icc/display.icc"_s);
+}
+
+void TestAppSettings::interpolationAndIccSurviveWrongTypes()
+{
+    // Hand-edited files with wrong value types fall back to the defaults
+    // instead of crashing or feeding garbage to the controllers.
+    const QString file = m_dir.filePath(u"wrong-types.json"_s);
+    {
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        out.write(R"json({
+            "quality": {
+                "interpolation": {"enabled": "yes-please", "preset": 42},
+                "icc": {"enabled": [], "profilePath": {"a": 1}}
+            }
+        })json");
+    }
+    AppSettings settings(file);
+    QVERIFY(settings.load());
+    QCOMPARE(settings.qualityInterpolationEnabled(), false);
+    QCOMPARE(settings.qualityInterpolationPreset(), u"MEMC_RIFE_STD"_s);
+    QCOMPARE(settings.qualityIccEnabled(), false);
+    QCOMPARE(settings.qualityIccProfilePath(), QString());
 }
 
 void TestAppSettings::musicDefaultsWhenMissing()

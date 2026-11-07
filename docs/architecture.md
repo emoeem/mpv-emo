@@ -31,6 +31,9 @@
 | 播放历史 | `src/history/HistoryStore.{h,cpp}` | QObject 服务；engine `fileLoaded` 时记录 path/title/duration，5 秒 QTimer 从 `time-pos` 刷新当前条目 position；按 path 去重置顶、上限 50 条；`AppDataLocation/history.json`（QSaveFile 原子写入），QML 经 `entries` 属性读取 |
 | 画质决策 | `src/quality/QualityProfileEngine.{h,cpp}` | 纯决策表（无 mpv/GUI/IO，全部单测）：MediaInfo（宽高/fps/animated 提示/HDR 提示/可用着色器）+ 用户偏好（contentMode/tier/tone-mapping/scale/deband）→ mpv 选项映射 + 着色器列表；全部选项名/值对照 mpv v0.37.0 文档与源码核实；Anime4K 组名/文件链对照上游 v4.0.1 GLSL_Instructions |
 | 画质控制 | `src/quality/QualityController.{h,cpp}` | 把决策表结果应用到运行中的引擎（标量选项走 setProperty、着色器列表走 `change-list glsl-shaders clr/append` 命令）；启动时收编/挂载持久化着色器清单；tier=off 且从未启用时不写引擎（不碰导入配置）；掉帧率超阈值把**当前生效档位**降为 low（会话级，持久化用户档位不动，下个文件恢复）；照 HistoryStore 模式：信号驱动 + 按需读属性 |
+| 插值决策 | `src/quality/InterpolationDecision.{h,cpp}` | P5 v2 帧插值纯决策表（无 mpv/GUI/IO，全部单测）：vs/ 预设登记表（MEMC_RIFE_STD 等 6 项，语义对齐 nativeization-plan §2.1，.vpy 脚本本身是外部用户资产）+ 准入判定（HDR / fps≥50 / fps 未知 / 脚本缺失 / vf 链已有非本方 vapoursynth 滤镜则让位）；`vfEntry` 组装带 `@emoplay-interp` 标签的 vf 项，脚本路径用 mpv `%len%` 逐字节引号（options/m_option.c read_subparam）防 Windows 盘符 `:` 拆参 |
+| 插值控制 | `src/quality/InterpolationController.{h,cpp}` | 诚实外部依赖模式：开关 + 预设持久化，`change-list vf append/remove` 挂/卸本方标签项；会话内一次支持探测（append 后读回 `vf` NODE 验证标签在位，否则回退关闭并提示「需要系统 vapoursynth 支持」，下次会话重新探测）；file-loaded/video-params/container-fps 驱动重判；HDR/高帧率/脚本缺失按决策表挡下并出面板提示 |
+| ICC 控制 | `src/quality/IccController.{h,cpp}` | icc-profile（面板文件选择）+ 开关持久化；启用时同步把 `icc-cache-dir` 经 `MpvImportRules::redirectTarget` 指到 AppData/icc_cache（与 P4 启动重定向同一张表）；文件存在性前置检查 + setProperty 后读回验证，失败回退关闭并提示；禁用恢复 startup() 快照的 icc-profile（导入值不丢，inert-at-off） |
 | 配置扫描 | `src/compat/MpvProfileScanner.{h,cpp}` | 定位用户 mpv 配置目录（对齐 mpv osdep/path-unix.c 语义：Linux/macOS 设了 `$XDG_CONFIG_HOME` 时**只用** `$XDG_CONFIG_HOME/mpv`，否则 `~/.config/mpv`，旧 `~/.mpv` 仅在主候选不存在时兜底；Windows `%APPDATA%/mpv`；base-dir 可注入，测试不碰真实 HOME）；`scan()` 产出 `ImportSummary`：逐文件条目数（复用 MpvConfigParser）、脚本/着色器/字体计数、字节数 |
 | 导入规则 | `src/compat/MpvImportRules.{h,cpp}` | 把解析出的 mpv.conf 条目变成 `initialize()` 选项映射：强制 vo=libmpv/osc=no/terminal=no；剥离 include、profile、scripts、input-conf、config-dir、写入路径与转储类选项；写入路径重定向到 EmoPlay AppData；其余选项原样通过；全部动作留审计行 |
 | 键名映射 | `src/compat/MpvKeyName.{h,cpp}` | Qt 按键事件→mpv 键名（可打印文本优先、命名键表、ctrl/alt/meta/shift 组合）；不可映射返回空串。支撑 P4 input.conf 绑定在嵌入 UI 内生效 |
@@ -176,6 +179,34 @@ P4/P5：纯逻辑（LrcParser）+ 薄控制器（MusicController）+ 独立 QML 
   歌词偏移标签（`[offset:]`）不在 v1；QML 交互正确性 CI 只验证「页面
   能离屏实例化、滑条数量正确」，实机交互待用户验证。
 
+### 帧插值 v2 与 ICC（P5 v2）
+
+v1 未含项的前两项按「诚实的外部依赖」模式落地（mpv v0.37.0 行为逐条对
+上游源码核实）：
+
+- **帧插值（VapourSynth MEMC 预设）**：mpv 侧只负责 `vf=vapoursynth=file=…`
+  的组装与挂载（vf_vapoursynth 仅 `file`/`buffered-frames`/`concurrent-frames`
+  三个参数，插值逻辑全在 .vpy 脚本内）；脚本文件、VapourSynth 运行时与推理
+  后端一律外部。预设表 = nativeization-plan §2.1 的 MEMC_* 语义登记，脚本按
+  预设名放入 AppData/vs（缺文件则挡下并提示，绝不假装可用）。挂载项带
+  `@emoplay-interp` 标签，`change-list vf append/remove` 增删（append 同标签
+  原位替换、remove 按标签删除，m_option.c parse_obj_settings_del），不碰用户
+  导入链的其他项；vf 链里已有**非本方** vapoursynth 项时整权让位。libmpv 无
+  vapoursynth 编译支持时 append 立即失败（parse_obj_settings "doesn't exist"），
+  控制器读回 `vf`（NODE：name/label/enabled/params，get_obj_settings_list）
+  发现标签不在位 → 回退关闭（持久化）+ 面板「需要系统 vapoursynth 支持」提示，
+  下个会话重新探测。已知边界：滤镜编译在内但 VS 运行时损坏/脚本运行出错只在
+  播放期暴露（mpv 自身报错），set 期探测看不见。
+- **ICC 显示配置**：`icc-profile`（面板文件选择）+ 开关；启用时同时把
+  `icc-cache-dir` 重定向到 AppData/icc_cache——P4 导入会话启动时已无条件重
+  定向该键（MpvImportRules 重定向表），v2 把表抽成 `MpvImportRules::redirectTarget`
+  供运行时共用，未导入会话启用 ICC 也走同一位置。失败面：文件不存在/不可读
+  前置挡下、setProperty 后读回验证，失败即回退关闭 + 面板提示。禁用恢复
+  startup() 快照（导入的 icc-profile 不丢）。已知边界：profile 内容损坏只在
+  渲染期被 mpv 记录并回退无色彩管理，属性层探测不可见。
+- 持久化：settings.json `quality` 节新增 `interpolation{enabled,preset}` 与
+  `icc{enabled,profilePath}` 两个嵌套对象（类型不符回退默认值）。
+
 ## 配置兼容层（P4）
 
 把用户既有的 mpv 配置（mpv.conf / input.conf / profiles.conf / platform.conf /
@@ -273,5 +304,5 @@ EmoPlay 自有的空 input.conf（AppData 下按需创建，创建失败经 `err
 - 音量 UI 语义：mpv volume 可 >100，滑条钳制 0–100，快捷键可到 130（待统一）。
 - 播放列表只存在于 mpv 会话内，未持久化到磁盘（roadmap P3 原文含「持久化」，本批次未包含，待后续批次）；历史记录按上次 position 点击回放，暂不支持断点续播选项。
 - 配置兼容层（P4）已实现扫描/导入/使 input.conf 与脚本生效；GUI 键位编辑器与设置页入口待后续批次。
-- 画质引擎（P5 v1）已落地决策表/应用路径/面板/持久化；未含项与简化见「画质引擎（P5 v1）」一节。
+- 画质引擎（P5 v1）已落地决策表/应用路径/面板/持久化；未含项与简化见「画质引擎（P5 v1）」一节。P5 v2 补齐帧插值（VapourSynth MEMC 预设，诚实外部依赖模式）与 ICC 显示配置（icc-profile + 重定向缓存），见「帧插值 v2 与 ICC（P5 v2）」。
 - 音乐模式（P7 v1）已落地歌词/EQ/纯音频判定/持久化；未含项与简化（af 唯一管理者、无 passthrough 互锁、专辑浏览等）见「音乐模式（P7 v1）」一节。
