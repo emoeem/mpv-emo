@@ -598,8 +598,10 @@ void PluginManager::onGitFinished(const QStringList &arguments,
                 emit errorOccurred(
                     QStringLiteral("cannot save %1").arg(m_statePath));
             emit changed();
+            // The full HEAD is recorded here and in state.json alike (the
+            // drawer shows it); no 12-char truncation in the message.
             finish(true, QStringLiteral("installed %1 (%2)")
-                             .arg(m_currentName, m_newHead.left(12)));
+                             .arg(m_currentName, m_newHead));
             return;
         }
         // Update (replace mode): swap staging into place.
@@ -648,7 +650,11 @@ void PluginManager::onGitFinished(const QStringList &arguments,
         const bool modified = !result.standardOutput.trimmed().isEmpty();
         m_locallyModified.insert(m_currentName, modified);
 
-        if (m_action == Action::Update) {
+        // Only a replace-mode update may proceed to the swap; a check-mode
+        // update is the comparison itself and must never clone or rewrite
+        // files (本地定制永不覆盖) — same contract as Action::Check.
+        if (m_action == Action::Update
+            && manifestFor(m_currentName).isReplace()) {
             if (modified) {
                 // Protective skip: local customizations win, always.
                 fail(QStringLiteral(
